@@ -16,9 +16,8 @@ app.use((req,res,next)=>{
     next();
 });
 
-console.log('start of .use of router');
+
 app.use('/cus',view_router_cus);
-console.log('end of .use of router');
 
 app.use('/cus',view_router_item)
 

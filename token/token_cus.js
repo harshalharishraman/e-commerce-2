@@ -8,7 +8,7 @@ static async atok_gen(i,n){
             id:i,
             name:n
         },process.env.access_sec_k,{
-            expiresIn:"1m"
+            expiresIn:"30m"
         });
         return tok
     } catch (error) {
@@ -26,7 +26,7 @@ try {
         });
         return tok
     } catch (error) {
-        return res.status(500).josn(new resp_cus(500,"error in  access tok gen",null))
+        return res.status(500).json(new resp_cus(500,"error in  access tok gen",null))
     }
 }
 
@@ -36,7 +36,10 @@ try {
     
     const req_head_auth=req.headers.authorization
 
-    //console.log(`${req_head_auth}`)
+   if (!req_head_auth.startsWith('Bearer ')) {
+            return res.status(400).json(new resp_cus(400, 'invalid auth format, use: Bearer <token>', null));
+        }
+    
     if(!req_head_auth){
         return res.status(400).json(new resp_cus(400,'header missing',null))
 
@@ -51,8 +54,13 @@ try {
 
 
     const dec=jwt.verify(acc_tk,process.env.access_sec_k)
+    if(!dec){
+        return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
+    }
+    req.user = dec;
     next();  
 } catch (error) {
+    console.error(error)
     return res.status(500).json(new resp_cus(500,'invalid or expired token',null))
 }
     }
@@ -68,19 +76,15 @@ static async refresh(req,res){
         
         const v=jwt.verify(refresh_token,process.env.refresh_sec_k)
         const n_acc_tk=jwt.sign({
-            tid:v.tid,
-            name:v.name,
-            email:v.email,
-            password:v.password,
+            id:v.id,
+            name:v.name
 
         },process.env.access_sec_k,{
-            expiresIn:'15m'
+            expiresIn:'30m'
         });
         const n_ref_tk=jwt.sign({
-            tid:v.tid,
-            name:v.name,
-            email:v.email,
-            password:v.password,
+            id:v.id,
+            name:v.name
 
         },process.env.refresh_sec_k,{
             expiresIn:'7d'
