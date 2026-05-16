@@ -31,7 +31,7 @@ static async model_login_cus(n,e,p){
         const account=await knex('ecom2_cus_tb').where({name:n,email:e}).first()
         const pass_check=await enc.compare(p,account.password)
         if(pass_check){
-            return true
+            return account
         }
         return false
     } catch (error) {

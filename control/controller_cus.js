@@ -2,7 +2,7 @@ require('dotenv').config();
 const model = require('../model/models_cus');
 const re_cus = require('../resvo/resvo_cus');
 const enc=require('bcrypt');
-const jg=require('../token/token_cus')
+const tk=require('../token/token_cus')
 const exp = require('express');
 const app=exp();
 
@@ -49,10 +49,12 @@ static async ctrl_login_cus(req,res){
         const logged_account=await model.model_login_cus(name,email,password)
 
         if(!logged_account){
-  return res.status(500).json(new re_cus(500,`invalid credentails`,null))}
+            return res.status(500).json(new re_cus(500,`invalid credentails`,null))}
+        
+        const atok=await tk.atok_gen(logged_account.id,logged_account.name)
+        const rtok=await tk.rtok_gen(logged_account.id,logged_account.name)
+        return res.status(200).json(new re_cus(200,`logged in using ${email}`,{"access_tok":atok,"refresh_token":rtok}))
 
-
-        return res.status(200).json(new re_cus(200,`logged in using ${email}`,null))
 
         
     } catch (error) {
