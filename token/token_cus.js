@@ -8,7 +8,7 @@ static async atok_gen(i,n){
             id:i,
             name:n
         },process.env.access_sec_k,{
-            expiresIn:"3m"
+            expiresIn:"1m"
         });
         return tok
     } catch (error) {
@@ -30,7 +30,7 @@ try {
     }
 }
 
-static async ref_tok_verifly(req,res){
+static async access_tok_verifly(req,res,next){
     
 try {
     
@@ -38,23 +38,22 @@ try {
 
     //console.log(`${req_head_auth}`)
     if(!req_head_auth){
-        return res.status(400).json(null,400,'header missing')
+        return res.status(400).json(new resp_cus(400,'header missing',null))
 
     }
 
     const acc_tk=req_head_auth.split(" ")[1]
 
     if(!acc_tk){
-              return res.status(400).json(new re(null,400,'token missing'))
+              return res.status(400).json(new resp_cus(400,'token missing',null))
   
     }
 
 
     const dec=jwt.verify(acc_tk,process.env.access_sec_k)
-    req.user=dec
     next();  
 } catch (error) {
-    return res.status(500).json(new re(null,500,'invalid or expired token'))
+    return res.status(500).json(new resp_cus(500,'invalid or expired token',null))
 }
     }
 
@@ -75,7 +74,7 @@ static async refresh(req,res){
             password:v.password,
 
         },process.env.access_sec_k,{
-            expiresIn:'5m'
+            expiresIn:'15m'
         });
         const n_ref_tk=jwt.sign({
             tid:v.tid,

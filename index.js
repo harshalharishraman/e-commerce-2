@@ -1,6 +1,7 @@
 require('dotenv').config()
 const exp=require('express')
 const view_router_cus=require('./view/router_cus')
+const view_router_item=require('./view/router_items')
 const http=require('http')
 
 const app = exp();
@@ -18,6 +19,8 @@ app.use((req,res,next)=>{
 console.log('start of .use of router');
 app.use('/cus',view_router_cus);
 console.log('end of .use of router');
+
+app.use('/cus',view_router_item)
 
 http_server.listen(port,()=>{
     console.log(`server started and listening at port:${port}`)
