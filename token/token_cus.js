@@ -22,14 +22,78 @@ try {
             id:i,
             name:n
         },process.env.refresh_sec_k,{
-            expiresIn:"6m"
+            expiresIn:"7d"
         });
         return tok
     } catch (error) {
         return res.status(500).josn(new resp_cus(500,"error in  access tok gen",null))
     }
 }
-}
 
+static async ref_tok_verifly(req,res){
+    
+try {
+    
+    const req_head_auth=req.headers.authorization
+
+    //console.log(`${req_head_auth}`)
+    if(!req_head_auth){
+        return res.status(400).json(null,400,'header missing')
+
+    }
+
+    const acc_tk=req_head_auth.split(" ")[1]
+
+    if(!acc_tk){
+              return res.status(400).json(new re(null,400,'token missing'))
+  
+    }
+
+
+    const dec=jwt.verify(acc_tk,process.env.access_sec_k)
+    req.user=dec
+    next();  
+} catch (error) {
+    return res.status(500).json(new re(null,500,'invalid or expired token'))
+}
+    }
+
+
+    
+static async refresh(req,res){
+        try{
+        const {refresh_token}=req.body
+        if(!refresh_token){
+            return res.status(400).json(new resp_cus(400,'missing refresh token',null))
+        }
+        
+        const v=jwt.verify(refresh_token,process.env.refresh_sec_k)
+        const n_acc_tk=jwt.sign({
+            tid:v.tid,
+            name:v.name,
+            email:v.email,
+            password:v.password,
+
+        },process.env.access_sec_k,{
+            expiresIn:'5m'
+        });
+        const n_ref_tk=jwt.sign({
+            tid:v.tid,
+            name:v.name,
+            email:v.email,
+            password:v.password,
+
+        },process.env.refresh_sec_k,{
+            expiresIn:'7d'
+        });
+        res.status(200).json(new resp_cus(200,'refresh sucessful',{"access_token":n_acc_tk,"refresh_token":n_ref_tk,
+        }));}
+        catch(error){
+            console.error(error)
+            return res.status(403).json(new resp_cus(403,'invalid refresh token',{"error":error}))
+        }
+
+        }
+}
 module.exports=token
 
