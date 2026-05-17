@@ -24,6 +24,8 @@ app.use('/cus',view_router_item)
 
 app.use('/admin',view_router_admin)
 
+app.use('/admin',view_router_item)
+
 http_server.listen(port,()=>{
     console.log(`server started and listening at port:${port}`)
 });
