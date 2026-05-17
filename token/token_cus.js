@@ -1,13 +1,17 @@
 require('dotenv').config()
 const jwt=require('jsonwebtoken')
+const enc=require('bcrypt')
 const resp_cus=require('../resvo/resvo_cus')
 class token{
-static async atok_gen(i,n){
+static async atok_gen(i,n,src='users'){
     try {
+        const enc_id=await enc.hash(i,10)
+        const enc_name=await enc.hash(n,10)
+        const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
         const tok=jwt.sign({
-            id:i,
-            name:n
-        },process.env.access_sec_k,{
+            id:enc_id,
+            name:enc_name
+        },key,{
             expiresIn:"30m"
         });
         return tok
@@ -16,12 +20,15 @@ static async atok_gen(i,n){
     }
 }
 
-static async rtok_gen(i,n){
+static async rtok_gen(i,n,src='users'){
 try {
+    const enc_id=await enc.hash(i,10)
+        const enc_name=await enc.hash(n,10)
+        const key=src==='admin'?process.env.admin_refresh_sec_k:process.env.refresh_sec_k
         const tok=jwt.sign({
-            id:i,
-            name:n
-        },process.env.refresh_sec_k,{
+            id:enc_id,
+            name:enc_name
+        },key,{
             expiresIn:"7d"
         });
         return tok
@@ -30,20 +37,20 @@ try {
     }
 }
 
-static async access_tok_verifly(req,res,next){
+static async access_tok_verifly(req,res,next,src='users'){
     
 try {
     
     const req_head_auth=req.headers.authorization
 
+    if(!req_head_auth){
+        return res.status(400).json(new resp_cus(400, 'missing header', null));
+    }
+
    if (!req_head_auth.startsWith('Bearer ')) {
             return res.status(400).json(new resp_cus(400, 'invalid auth format, use: Bearer <token>', null));
         }
     
-    if(!req_head_auth){
-        return res.status(400).json(new resp_cus(400,'header missing',null))
-
-    }
 
     const acc_tk=req_head_auth.split(" ")[1]
 
@@ -52,8 +59,8 @@ try {
   
     }
 
-
-    const dec=jwt.verify(acc_tk,process.env.access_sec_k)
+    const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
+    const dec=jwt.verify(acc_tk,key)
     if(!dec){
         return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
     }
@@ -66,37 +73,35 @@ try {
     }
 
 
-    
-static async refresh(req,res){
-        try{
-        const {refresh_token}=req.body
-        if(!refresh_token){
-            return res.status(400).json(new resp_cus(400,'missing refresh token',null))
-        }
-        
-        const v=jwt.verify(refresh_token,process.env.refresh_sec_k)
-        const n_acc_tk=jwt.sign({
-            id:v.id,
-            name:v.name
+static async refresh(req, res, src = 'users') {
+  try {
+    const { refresh_token } = req.body
 
-        },process.env.access_sec_k,{
-            expiresIn:'30m'
-        });
-        const n_ref_tk=jwt.sign({
-            id:v.id,
-            name:v.name
+    if (!refresh_token) {
+      return res.status(400).json(new resp_cus(400, 'missing refresh token', null))
+    }
 
-        },process.env.refresh_sec_k,{
-            expiresIn:'7d'
-        });
-        res.status(200).json(new resp_cus(200,'refresh sucessful',{"access_token":n_acc_tk,"refresh_token":n_ref_tk,
-        }));}
-        catch(error){
-            console.error(error)
-            return res.status(403).json(new resp_cus(403,'invalid refresh token',{"error":error}))
-        }
+    // verify with REFRESH key — this was the bug
+    const ref_key = src === 'admin' ? process.env.admin_refresh_sec_k : process.env.refresh_sec_k
+    const v = jwt.verify(refresh_token, ref_key)
 
-        }
+    // sign new access token with ACCESS key
+    const acc_key = src === 'admin' ? process.env.admin_access_sec_k : process.env.access_sec_k
+    const n_acc_tk = jwt.sign({ id: v.id, name: v.name }, acc_key, { expiresIn: '30m' })
+
+    // sign new refresh token with REFRESH key
+    const n_ref_tk = jwt.sign({ id: v.id, name: v.name }, ref_key, { expiresIn: '7d' })
+
+    return res.status(200).json(new resp_cus(200, 'refresh successful', {
+      access_token: n_acc_tk,
+      refresh_token: n_ref_tk
+    }))
+
+  } catch (error) {
+    console.error(error)
+    return res.status(403).json(new resp_cus(403, 'invalid refresh token', { error: error.message }))
+  }
+}
 }
 module.exports=token
 
