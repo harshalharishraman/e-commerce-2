@@ -44,6 +44,30 @@ static async model_login_admin(n,e,p){
 
 }
 
+
+static async model_add_categories_admin(cat_list){
+    const trans=await knex.transaction()
+    try {
+        const bulk=[]
+        for(const i of cat_list){
+            const new_slug=i.toLowerCase().replaceAll(' ','-')
+            const exist=await trans('categories').where({slug:new_slug}).first()
+            if(exist){
+                throw new Error(`${new_slug} already exists in categories`) 
+            }
+            bulk.push({ name: i, slug: new_slug })}
+            const inserted=await trans('categories').insert(bulk).returning('*')
+            await trans.commit()
+            return inserted
+    } 
+    
+    catch (error) 
+    {
+      await trans.rollback();
+    throw error;
+    }
+}
+
 static async if_email_exist(e){
         try{
             const u=await knex('admin_tb').where({email:e}).first();
@@ -53,7 +77,10 @@ static async if_email_exist(e){
             console.error('error in retriving data of such email');
             throw error
         }
-}}
+}
+
+
+}
 
 
 module.exports=models_admin
