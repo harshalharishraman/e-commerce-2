@@ -98,6 +98,9 @@ static async crtl_delete_categories(req,res){
             return res.status(400).json(new re_cus(400,'only string elements accepted',null))
         }
         const from_model=await model.model_delete_categories_admin(categories)
+        if(!from_model.success){
+            return res.status(400).json(new re_cus(400,from_model.message,null))
+        }
         return res.status(201).json(new re_cus(200,'deleted category/ies',{"new categories":from_model}))
 
     } 

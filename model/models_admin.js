@@ -73,12 +73,13 @@ static async model_delete_categories_admin(del_list){
     const trans=await knex.transaction()
     try {
         const bulk=[]
-        for(const i of _list){
+        for(const i of del_list){
             
             const new_slug=i.toLowerCase().replaceAll(' ','-')
             const exist=await trans('categories').where({slug:new_slug}).first()
             if(!exist){
-          throw new Error(`${i} doesnt exist in categories`)}
+                await trans.rollback()
+                return { success: false, message: `${i} doesn't exist in categories` }}
         
         bulk.push(new_slug)}
             await trans('categories').whereIn('slug',bulk).del()
