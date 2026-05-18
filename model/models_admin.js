@@ -96,6 +96,34 @@ static async model_delete_categories_admin(del_list){
 
 }
 
+
+static async model_update_categories_admin(to_upd_list,new_list){
+
+    const trans=await knex.transaction()
+    try {
+        for(const i of to_upd_list){
+            const exist=await trans('categories').where({name:i}).first()
+            if(!exist){
+                return { success: false, message: `${i} doesn't exist in categories` }}
+        }
+        for(let i=0;i < to_upd_list.length;i++){
+            const new_slug=await new_list[i].toLowerCase().replaceAll(' ','-')
+            await trans('categories').where({name:to_upd_list[i]})
+            .update({name:new_list[i],slug:new_slug})
+        }
+            const new_tb=await trans('categories').select('*')
+            await trans.commit()
+            return { success: true, data: new_tb }
+    } 
+    
+    catch (error) 
+    {
+      await trans.rollback();
+    throw error;
+    }
+
+}
+
 static async if_email_exist(e){
         try{
             const u=await knex('admin_tb').where({email:e}).first();

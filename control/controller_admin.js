@@ -110,6 +110,36 @@ static async crtl_delete_categories(req,res){
     }
 }
 
+static async crtl_update_categories(req,res){
+    
+    try {
+    const {categories,new_categories}=req.body
+        if(!categories || !Array.isArray(categories) || categories.length===0 
+           || !new_categories || !Array.isArray(new_categories) || new_categories.length===0){
+            return res.status(400).json(new re_cus(400,'array/s missing or invalid',null))
+        }
+        let valid = await categories.every(cat => typeof cat === 'string');
+        valid=await new_categories.every(cat => typeof cat === 'string');
+        if(valid==false){
+            return res.status(400).json(new re_cus(400,'only string elements accepted',null))
+        }
+        const check_lenght=(categories.length==new_categories.length)?true:false
+        if(check_lenght==false){
+            return res.status(400).json(new re_cus(400,'unequal no of elements btw arrays',null))
+        }   
+        const from_model=await model.model_update_categories_admin(categories,new_categories)
+        if(!from_model.success){
+            return res.status(400).json(new re_cus(400,from_model.message,null))
+        }
+        return res.status(201).json(new re_cus(200,'updated category/ies',{"new categories":from_model.data}))
+
+    } 
+    catch (error) {
+        console.error(error)
+        return res.status(500).json(new re_cus(500,'internal server issue',null))
+    }
+}
+
 }
 
 module.exports=controller_admin
