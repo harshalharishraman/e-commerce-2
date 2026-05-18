@@ -81,10 +81,31 @@ static async ctrl_add_categories(req,res){
         return res.status(201).json(new re_cus(200,'added category/ies',{"new categories":from_model}))
         
     } catch (error) {
-        console.error(error)
+        return res.status(500).json(new re_cus(500,'internal server issue',null))
+        
     }
 }
 
+static async crtl_delete_categories(req,res){
+    
+    try {
+        const {categories}=req.body
+        if(!categories || !Array.isArray(categories) || categories.length===0){
+            return res.status(400).json(new re_cus(400,'array missing or invalid',null))
+        }
+        const valid = categories.every(cat => typeof cat === 'string');
+        if(valid==false){
+            return res.status(400).json(new re_cus(400,'only string elements accepted',null))
+        }
+        const from_model=await model.model_delete_categories_admin(categories)
+        return res.status(201).json(new re_cus(200,'deleted category/ies',{"new categories":from_model}))
+
+    } 
+    catch (error) {
+        console.error(error)
+        return res.status(500).json(new re_cus(500,'internal server issue',null))
+    }
+}
 
 }
 

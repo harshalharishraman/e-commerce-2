@@ -11,6 +11,8 @@ router_admin.post('/refresh',(req,res)=>{tok.refresh(req,res,'admin')})
 
 router_admin.use((req,res,next)=>{tok.access_tok_verifly(req,res,next,'admin')})
 router_admin.post('/add_categories/',ctrl_admin.ctrl_add_categories)
+router_admin.post('/delete_categories/',ctrl_admin.crtl_delete_categories)
+
 
 
 

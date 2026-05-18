@@ -68,6 +68,33 @@ static async model_add_categories_admin(cat_list){
     }
 }
 
+static async model_delete_categories_admin(del_list){
+
+    const trans=await knex.transaction()
+    try {
+        const bulk=[]
+        for(const i of _list){
+            
+            const new_slug=i.toLowerCase().replaceAll(' ','-')
+            const exist=await trans('categories').where({slug:new_slug}).first()
+            if(!exist){
+          throw new Error(`${i} doesnt exist in categories`)}
+        
+        bulk.push(new_slug)}
+            await trans('categories').whereIn('slug',bulk).del()
+            const new_tb=await trans('categories').select('*')
+            await trans.commit()
+            return new_tb
+    } 
+    
+    catch (error) 
+    {
+      await trans.rollback();
+    throw error;
+    }
+
+}
+
 static async if_email_exist(e){
         try{
             const u=await knex('admin_tb').where({email:e}).first();
