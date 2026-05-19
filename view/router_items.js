@@ -10,6 +10,6 @@ router_item.use((req,res,next)=>{
     tok.access_tok_verifly(req,res,next,client_type)
 })
 router_item.get('/categories/get_all',ctrl_item.crtl_get_all_categories)
-//router_item.get('./categories/:cat/all_sub')
+router_item.get('/categories/all_sub/:id',ctrl_item.crtl_get_all_subcategories)
 
 module.exports=router_item

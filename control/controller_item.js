@@ -20,6 +20,18 @@ try {
     return res.status(500).json(new re_cus(500,'internal server issue',null))
 }
 }
+
+static async crtl_get_all_subcategories(req,res){
+try {
+    const m = await model.models_get_all_subcategories(req,res);
+    const n=m.map(c=>c.name)
+    return res.status(200).json(new re_cus(200,'sub_categories sucessfully retrived',{"sub_categories":n}))
+
+} catch (error) {
+    console.error(error)
+    return res.status(500).json(new re_cus(500,'internal server issue',null))
+}
+}
 }
 
 module.exports=controller_item
