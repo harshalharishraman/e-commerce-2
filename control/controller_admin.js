@@ -118,8 +118,8 @@ static async crtl_update_categories(req,res){
            || !new_categories || !Array.isArray(new_categories) || new_categories.length===0){
             return res.status(400).json(new re_cus(400,'array/s missing or invalid',null))
         }
-        let valid = await categories.every(cat => typeof cat === 'string');
-        valid=await new_categories.every(cat => typeof cat === 'string');
+        const valid = categories.every(cat => typeof cat === 'string') 
+           && new_categories.every(cat => typeof cat === 'string')
         if(valid==false){
             return res.status(400).json(new re_cus(400,'only string elements accepted',null))
         }
@@ -140,6 +140,98 @@ static async crtl_update_categories(req,res){
     }
 }
 
+
+static async ctrl_add_sub_categories(req,res){
+
+try {
+    const {subs,cat_ids}=req.body
+        if(!subs || !Array.isArray(subs) || subs.length===0){
+            return res.status(400).json(new re_cus(400,'array missing or invalid',null))
+        }
+        
+        const valid = subs.every(cat => typeof cat === 'string');
+        if(valid==false){
+            return res.status(400).json(new re_cus(400,'only string elements accepted in subs',null))
+        }
+
+        const valid2 = cat_ids.every(cat => Number.isInteger(cat));
+        if(valid2==false){
+            return res.status(400).json(new re_cus(400,'only +ve int elements accepted in cat_ids',null))
+        }
+
+        const check_lenght=(subs.length==cat_ids.length)?true:false
+        if(check_lenght==false){
+            return res.status(400).json(new re_cus(400,'unequal no of elements btw arrays',null))
+        }   
+
+        const from_model=await model.model_add_sub_categories_admin(subs,cat_ids)
+        if(!from_model.success){
+            return res.status(400).json(new re_cus(400,from_model.message,null))
+        }
+        return res.status(201).json(new re_cus(200,'added sub_category/ies',{"new categories":from_model.data}))
+        
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json(new re_cus(500,'internal server issue',null))
+        
+    }
+}
+
+static async ctrl_del_sub_categories(req,res){
+
+
+try {
+    const {subs}=req.body
+        if(!subs || !Array.isArray(subs) || subs.length===0){
+            return res.status(400).json(new re_cus(400,'array missing or invalid',null))
+        }
+        const valid = subs.every(cat => typeof cat === 'string');
+        if(valid==false){
+            return res.status(400).json(new re_cus(400,'only string elements accepted in subs',null))
+        }  
+
+        const from_model=await model.model_del_sub_categories_admin(subs)
+        if(!from_model.success){
+            return res.status(400).json(new re_cus(400,from_model.message,null))
+        }
+        return res.status(201).json(new re_cus(200,'added sub category/ies',{"new sub categories":from_model.data}))
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json(new re_cus(500,'internal server issue',null))
+        
+    }
+}
+
+static async ctrl_upd_sub_categories(req,res){
+
+try {
+    const {to_upd,new_names}=req.body
+        if(!to_upd || !Array.isArray(to_upd) || to_upd.length===0 
+           || !new_names || !Array.isArray(new_names) || new_names.length===0){
+            return res.status(400).json(new re_cus(400,'array/s missing or invalid',null))
+        }
+        let valid = to_upd.every(cat => typeof cat === 'string') 
+           && new_names.every(cat => typeof cat === 'string')
+        valid=await new_names.every(cat => typeof cat === 'string');
+        if(valid==false){
+            return res.status(400).json(new re_cus(400,'only string elements accepted',null))
+        }
+        const check_lenght=(to_upd.length==new_names.length)?true:false
+        if(check_lenght==false){
+            return res.status(400).json(new re_cus(400,'unequal no of elements btw arrays',null))
+        }   
+        const from_model=await model.model_update_sub_categories_admin(to_upd,new_names)
+        if(!from_model.success){
+            return res.status(400).json(new re_cus(400,from_model.message,null))
+        }
+        return res.status(201).json(new re_cus(200,'updated sub category/ies',{"new sub categories":from_model.data}))
+
+    } 
+    catch (error) {
+        console.error(error)
+        return res.status(500).json(new re_cus(500,'internal server issue',null))
+    }
+}
 }
 
 module.exports=controller_admin

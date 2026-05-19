@@ -16,7 +16,9 @@ router_admin.post('/add_categories/',ctrl_admin.ctrl_add_categories)
 router_admin.delete('/delete_categories/',ctrl_admin.crtl_delete_categories)
 router_admin.put('/update_categories/',ctrl_admin.crtl_update_categories)
 
-
+router_admin.post('/categories/add_subs',ctrl_admin.ctrl_add_sub_categories)
+router_admin.delete('/categories/del_subs',ctrl_admin.ctrl_del_sub_categories)
+router_admin.put('/categories/upd_subs',ctrl_admin.ctrl_upd_sub_categories)
 
 
 

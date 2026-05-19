@@ -31,6 +31,8 @@ static async model_login_admin(n,e,p){
         const dec_name=await enc.compare(n,account.name)
         const dec_password=await enc.compare(p,account.password)
         if(dec_name  && dec_password){
+        await knex('admin_tb').where({ email:e}).update({
+        last_login_at: knex.fn.now()})
         return account}
         
         else{
@@ -124,6 +126,88 @@ static async model_update_categories_admin(to_upd_list,new_list){
 
 }
 
+
+static async model_add_sub_categories_admin(names,cat_ids){
+const trans=await knex.transaction()
+    try {
+        const bulk=[]
+        let x=0
+        for(const i of names){
+            const new_slug=i.toLowerCase().replaceAll(' ','-')
+            const exist=await trans('subcategories_tb').where({slug:new_slug,category_id:cat_ids[x]}).first()
+            if(exist){
+                x++;
+             await trans.rollback()
+                return { success: false, message: `${i} doesn't exist in categories` }}
+            bulk.push({ name: i, slug: new_slug ,category_id:cat_ids[x]});
+        x++;}
+            const inserted=await trans('subcategories_tb').insert(bulk).returning('*')
+            await trans.commit()
+            return {success:true,data:inserted}
+    } 
+    
+    catch (error) 
+    {
+      await trans.rollback();
+    throw error;
+    }
+
+
+}
+
+static async model_del_sub_categories_admin(to_del){
+        const trans=await knex.transaction()
+    try {
+        const bulk=[]
+        for(const i of to_del){
+            
+            const new_slug=i.toLowerCase().replaceAll(' ','-')
+            const exist=await trans('subcategories_tb').where({slug:new_slug}).first()
+            if(!exist){
+                await trans.rollback()
+                return { success: false, message: `${i} doesn't exist in categories` }}
+        
+        bulk.push(new_slug)}
+            await trans('subcategories_tb').whereIn('slug',bulk).del()
+            const new_tb=await trans('subcategories_tb').select('name')
+            await trans.commit()
+            return {success:true,data:new_tb}
+    } 
+    
+    catch (error) 
+    {
+      await trans.rollback();
+    throw error;
+    }
+}
+
+static async model_update_sub_categories_admin(to_upd,new_names){
+
+const trans=await knex.transaction()
+    try {
+        for(const i of to_upd){
+            const exist=await trans('subcategories_tb').where({name:i}).first()
+            if(!exist){
+                await trans.rollback();
+                return { success: false, message: `${i} doesn't exist in categories` }}
+        }
+        for(let i=0;i < to_upd.length;i++){
+            const new_slug=await new_names[i].toLowerCase().replaceAll(' ','-')
+            await trans('subcategories_tb').where({name:to_upd[i]})
+            .update({name:new_names[i],slug:new_slug})
+        }
+            const new_tb=await trans('subcategories_tb').select('name')
+            await trans.commit()
+            return { success: true, data: new_tb }
+    } 
+    
+    catch (error) 
+    {
+      await trans.rollback();
+    throw error;
+    }
+}
+
 static async if_email_exist(e){
         try{
             const u=await knex('admin_tb').where({email:e}).first();
@@ -134,6 +218,8 @@ static async if_email_exist(e){
             throw error
         }
 }
+
+
 
 
 }

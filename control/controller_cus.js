@@ -64,4 +64,6 @@ static async ctrl_login_cus(req,res){
 }
 }
 
+
+
 module.exports=customer_cus
