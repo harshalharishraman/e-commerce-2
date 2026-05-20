@@ -219,7 +219,113 @@ static async if_email_exist(e){
         }
 }
 
+static async model_add_products_admin(prod,img_url,stock,brand,desc,cid,sid){
+const trans=await knex.transaction()
+    try {
+        const bulk=[]
+        let x=0
+        const exist0=await trans('subcategories_tb').where({category_id:cid}).first()
+        const exist1=await trans('subcategories_tb').where({id:sid}).first()
+        if(!exist0){
+                if(!exist1){
+                    return { 
+                        success: false, 
+                        message:`no category with id:${cid} and sub with id:${sid} exists`
+                    } 
+                }
+                return { 
+                    success: false,
+                    message:`no category with such catgory id:${cid}` 
+                }
+            }
+            if(!exist1){
+                    return { success: false, message: `no sub category with id:${sid} exists`} 
+                }
+        for(let i=0;i<prod.length;i++){
+            const new_slug=prod[i].toLowerCase().replaceAll(' ','-')
+            
+            
+            const exist=await trans('product_tb').where({slug:new_slug,sub_category_id:sid}).first()
+            if(exist){
+             await trans.rollback()
+                return { success: false, message: `${prod[i]} already exist in prducts tb` }}
 
+            bulk.push(
+                { 
+                    name: prod[i],
+                    slug: new_slug,
+                    sub_category_id:sid,
+                    image_url:img_url[i],
+                    description:desc[i],
+                    stock:stock[i],
+                    brand:brand[i]
+                }
+            );
+           }
+            
+             
+            const inserted=await trans('product_tb').insert(bulk).returning('name')
+            await trans.commit()
+            return {success:true,data:inserted}
+    } 
+    
+    catch (error) 
+    {
+      await trans.rollback();
+    throw error;
+    }
+
+
+}
+
+static async model_del_products_admin(to_del,cid,sid){
+
+    const trans=await knex.transaction()
+    try {
+        const bulk=[]
+        
+        
+            const exist0=await trans('subcategories_tb').where({category_id:cid}).first()
+            const exist1=await trans('subcategories_tb').where({id:sid}).first()
+            if(!exist0){
+                if(!exist1){
+                    return { 
+                        success: false, 
+                        message:`no category with id:${cid} and sub with id:${sid} exists`
+                    } 
+                }
+                return { 
+                    success: false,
+                    message:`no category with such catgory id:${cid}` 
+                }
+            }
+            if(!exist1){
+                    return { success: false, message: `no sub category with id:${sid} exists`} 
+                }
+
+
+        for(const i of to_del){
+            
+            const new_slug=i.toLowerCase().replaceAll(' ','-')
+            const exist=await trans('product_tb').where({slug:new_slug,sub_category_id:sid}).first()
+            
+            if(!exist){
+                await trans.rollback();
+                return { success: false, message: `${i} doesn't exist in this sub category` }}
+            bulk.push(new_slug)}
+            
+            await trans('product_tb').where({sub_category_id:sid}).whereIn('slug',bulk).del()
+            const new_tb=await trans('product_tb').select('name')
+            await trans.commit()
+            return {success:true,data:new_tb}
+    } 
+    
+    catch (error) 
+    {
+    await trans.rollback();
+    throw error;
+    }
+}
 
 
 }

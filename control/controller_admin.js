@@ -212,7 +212,6 @@ try {
         }
         let valid = to_upd.every(cat => typeof cat === 'string') 
            && new_names.every(cat => typeof cat === 'string')
-        valid=await new_names.every(cat => typeof cat === 'string');
         if(valid==false){
             return res.status(400).json(new re_cus(400,'only string elements accepted',null))
         }
@@ -232,6 +231,84 @@ try {
         return res.status(500).json(new re_cus(500,'internal server issue',null))
     }
 }
+
+static async ctrl_add_products(req, res) {
+  try {
+    const { prod, img_url, stock, brand, desc } = req.body
+
+    if (!prod    || !Array.isArray(prod)    || prod.length === 0
+     || !img_url || !Array.isArray(img_url) || img_url.length === 0
+     || !stock   || !Array.isArray(stock)   || stock.length === 0
+     || !brand   || !Array.isArray(brand)   || brand.length === 0
+     || !desc    || !Array.isArray(desc)    || desc.length === 0) {
+      return res.status(400).json(new re_cus(400, 'array/s missing or invalid', null))
+    }
+
+    const valid = prod.every(i => typeof i === 'string')
+      && img_url.every(i => typeof i === 'string')
+      && brand.every(i => typeof i === 'string')
+      && desc.every(i => typeof i === 'string')
+      && stock.every(i => Number.isInteger(i))
+
+    if (!valid) {
+      return res.status(400).json(new re_cus(400, 'wrong type of elements in one or more arrays', null))
+    }
+
+    const check_length = prod.length === img_url.length  // ✓ proper chained check
+      && img_url.length === stock.length
+      && stock.length === brand.length
+      && brand.length === desc.length
+
+    if (!check_length) {
+      return res.status(400).json(new re_cus(400, 'unequal no of elements btw arrays', null))
+    }
+
+    const cid = req.params.cid
+    const sid = req.params.sid
+
+    const from_model = await model.model_add_products_admin(prod, img_url, stock, brand, desc, cid, sid)
+
+    if (!from_model.success) {
+      return res.status(400).json(new re_cus(400, from_model.message, null))
+    }
+
+    return res.status(201).json(new re_cus(201, 'added product/s', { 'new products': from_model.data }))
+
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json(new re_cus(500, 'internal server issue', null))
+  }
+}
+
+
+static async ctrl_del_products(req,res){
+
+    try {
+        const {names}=req.body
+        if (!names||!Array.isArray(names)|| names.length === 0){
+            return res.status(400).json(new re_cus(400, 'array missing or invalid', null))
+        }
+
+        const valid = names.every(i => typeof i === 'string')
+
+        if (!valid) {
+            return res.status(400).json(new re_cus(400, 'only string elements accpeted', null))}
+
+        const cid = req.params.cid
+        const sid = req.params.sid
+
+    const from_model = await model.model_del_products_admin(names, cid, sid)
+
+    if (!from_model.success) {
+      return res.status(400).json(new re_cus(400, from_model.message, null))
+    }
+
+    return res.status(201).json(new re_cus(201, 'deleted product/s', { 'new product_tb of such subcategory': from_model.data }))
+
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json(new re_cus(500, 'internal server issue', null))
+  }}
 }
 
 module.exports=controller_admin
