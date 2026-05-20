@@ -327,7 +327,52 @@ static async model_del_products_admin(to_del,cid,sid){
     }
 }
 
+static async model_upd_products_admin(to_upd, new_names, new_img_url, new_stock, new_desc, cid, sid) {
+  const trans = await knex.transaction()
+  try {
 
+    const exist0 = await trans('subcategories_tb').where({ category_id: cid }).first()
+    const exist1 = await trans('subcategories_tb').where({ id: sid }).first()
+    if (!exist0) {
+      await trans.rollback()
+      if (!exist1) return { success: false, message: `no category with id:${cid} and sub with id:${sid} exists` }
+      return { success: false, message: `no category with id:${cid} exists` }
+    }
+    if (!exist1) {
+      await trans.rollback()
+      return { success: false, message: `no sub category with id:${sid} exists` }
+    }
+
+    for (let i = 0; i < to_upd.length; i++) {
+      const old_slug = to_upd[i].toLowerCase().replaceAll(' ', '-')
+      const new_slug = new_names[i].toLowerCase().replaceAll(' ', '-')
+
+      const exist = await trans('product_tb').where({ slug: old_slug, sub_category_id: sid }).first()
+      if (!exist) {                                        // ✓ flipped — must exist to update
+        await trans.rollback()
+        return { success: false, message: `${to_upd[i]} doesn't exist in products` }
+      }
+
+      await trans('product_tb')
+        .where({ slug: old_slug, sub_category_id: sid }) // ✓ update instead of insert
+        .update({
+          name: new_names[i],
+          slug: new_slug,
+          image_url: new_img_url[i],
+          description: new_desc[i],
+          stock: new_stock[i]
+        })
+    }
+
+    const updated = await trans('product_tb').where({ sub_category_id: sid }).select('name')
+    await trans.commit()
+    return { success: true, data: updated }
+
+  } catch (error) {
+    await trans.rollback()
+    throw error
+  }
+}
 }
 
 

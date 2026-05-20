@@ -22,7 +22,7 @@ router_admin.put('/categories/upd_subs',ctrl_admin.ctrl_upd_sub_categories)
 
 router_admin.post('/categories/:cid/sub/:sid/add',ctrl_admin.ctrl_add_products)
 router_admin.delete('/categories/:cid/sub/:sid/del',ctrl_admin.ctrl_del_products)
-//router_admin.put('/categories/:cid/sub/:sid/upd',ctrl_admin.ctrl_upd_products)
+router_admin.put('/categories/:cid/sub/:sid/upd',ctrl_admin.ctrl_upd_products)
 
 
 

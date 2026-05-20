@@ -7,6 +7,7 @@ const exp = require('express');
 const app=exp();
 
 class controller_admin{
+
 static async ctrl_signup_admin(req,res){
     try {
         const{name,email,password,employee_id}=req.body
@@ -67,6 +68,7 @@ static async ctrl_login_admin(req,res){
     }
 }
 
+//CATEGORIES
 static async ctrl_add_categories(req,res){
     try {
         const {categories}=req.body
@@ -140,7 +142,7 @@ static async crtl_update_categories(req,res){
     }
 }
 
-
+//SUB-CATEGORIES
 static async ctrl_add_sub_categories(req,res){
 
 try {
@@ -232,6 +234,7 @@ try {
     }
 }
 
+//PRODUCTS
 static async ctrl_add_products(req, res) {
   try {
     const { prod, img_url, stock, brand, desc } = req.body
@@ -308,7 +311,58 @@ static async ctrl_del_products(req,res){
   } catch (error) {
     console.error(error)
     return res.status(500).json(new re_cus(500, 'internal server issue', null))
-  }}
+  }
+}
+
+
+static async ctrl_upd_products(req,res){
+try{
+const { to_upd,new_names, new_img_url, new_stock, new_desc } = req.body
+
+    if (!to_upd    || !Array.isArray(to_upd)    || to_upd.length === 0
+     || !new_img_url || !Array.isArray(new_img_url) || new_img_url.length === 0
+     || !new_stock   || !Array.isArray(new_stock)   || new_stock.length === 0
+     || !new_names   || !Array.isArray(new_names)   || new_names.length === 0
+     || !new_desc    || !Array.isArray(new_desc)    || new_desc.length === 0) {
+      return res.status(400).json(new re_cus(400, 'array/s missing or invalid', null))
+    }
+
+    const valid = to_upd.every(i => typeof i === 'string')
+      && new_img_url.every(i => typeof i === 'string')
+      && new_names.every(i => typeof i === 'string')
+      && new_desc.every(i => typeof i === 'string')
+      && new_stock.every(i => Number.isInteger(i))
+
+    if (!valid) {
+      return res.status(400).json(new re_cus(400, 'wrong type of elements in one or more arrays', null))
+    }
+
+    const check_length = to_upd.length === new_img_url.length  // ✓ proper chained check
+      && new_img_url.length === new_stock.length
+      && new_stock.length === new_names.length
+      && new_names.length === new_desc.length
+
+    if (!check_length) {
+      return res.status(400).json(new re_cus(400, 'unequal no of elements btw arrays', null))
+    }
+
+    const cid = req.params.cid
+    const sid = req.params.sid
+
+    const from_model = await model.model_upd_products_admin(to_upd,new_names,new_img_url,new_stock,new_desc,cid,sid)
+
+    if (!from_model.success) {
+      return res.status(400).json(new re_cus(400, from_model.message, null))
+    }
+
+    return res.status(201).json(new re_cus(201, 'updated product/s',{ 'new products': from_model.data }))
+
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json(new re_cus(500, 'internal server issue', null))
+  }
+}
+
 }
 
 module.exports=controller_admin
