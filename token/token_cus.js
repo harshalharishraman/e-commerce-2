@@ -3,14 +3,15 @@ const jwt=require('jsonwebtoken')
 const enc=require('bcrypt')
 const resp_cus=require('../resvo/resvo_cus')
 class token{
-static async atok_gen(i,n,src='users'){
+static async atok_gen(i,n,e,src='users'){
     try {
         const enc_id=await enc.hash(i,10)
         const enc_name=await enc.hash(n,10)
         const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
         const tok=jwt.sign({
             id:enc_id,
-            name:enc_name
+            name:enc_name,
+            email:e
         },key,{
             expiresIn:"30m"
         });
@@ -20,14 +21,15 @@ static async atok_gen(i,n,src='users'){
     }
 }
 
-static async rtok_gen(i,n,src='users'){
+static async rtok_gen(i,n,e,src='users'){
 try {
     const enc_id=await enc.hash(i,10)
         const enc_name=await enc.hash(n,10)
         const key=src==='admin'?process.env.admin_refresh_sec_k:process.env.refresh_sec_k
         const tok=jwt.sign({
             id:enc_id,
-            name:enc_name
+            name:enc_name,
+            email:e
         },key,{
             expiresIn:"7d"
         });
@@ -87,10 +89,10 @@ static async refresh(req, res, src = 'users') {
 
     // sign new access token with ACCESS key
     const acc_key = src === 'admin' ? process.env.admin_access_sec_k : process.env.access_sec_k
-    const n_acc_tk = jwt.sign({ id: v.id, name: v.name }, acc_key, { expiresIn: '30m' })
+    const n_acc_tk = jwt.sign({ id: v.id, name: v.name ,email:v.email}, acc_key, { expiresIn: '30m' })
 
     // sign new refresh token with REFRESH key
-    const n_ref_tk = jwt.sign({ id: v.id, name: v.name }, ref_key, { expiresIn: '7d' })
+    const n_ref_tk = jwt.sign({ id: v.id, name: v.name ,email:v.email }, ref_key, { expiresIn: '7d' })
 
     return res.status(200).json(new resp_cus(200, 'refresh successful', {
       access_token: n_acc_tk,

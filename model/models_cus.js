@@ -49,5 +49,39 @@ static async if_email_exist(e){
             throw error
         }
 }
+
+static async model_cart_add(dec_email, name, qty) {
+  const trans = await knex.transaction()
+  try {
+
+    const product = await trans('product_tb').where({ name }).first()
+    if (!product) {
+      await trans.rollback()
+      return { success: false, message: `no product with name: ${name} exists` }
+    }
+
+    let cart = await trans('cart_tb').where({ email: dec_email, status: 'active' }).first()
+    if (!cart) {
+      const [new_cart] = await trans('cart_tb')
+        .insert({ email: dec_email, status: 'active' })
+        .returning('*')
+      cart = new_cart
+    }
+
+    const [added] = await trans('cart_items_tb').insert({
+      cart_id:    cart.id,
+      product_id: product.id,
+      quantity:   qty,
+      price:      product.price_usd
+    }).returning('*')
+
+    await trans.commit()
+    return { success: true, message: `added to cart id: ${cart.id}`, data: added }
+
+  } catch (error) {
+    await trans.rollback()
+    throw error
+  }
+}
 }
 module.exports=models_cus

@@ -52,8 +52,8 @@ static async ctrl_login_admin(req,res){
                 return res.status(400).json(new re_cus(400,'invalid credentails',null))
               }
               
-              const atok=await tk.atok_gen(from_model.id,from_model.name,'admin')
-              const rtok=await tk.rtok_gen(from_model.id,from_model.name,'admin')
+              const atok=await tk.atok_gen(from_model.id,from_model.name,from_model.email,'admin')
+              const rtok=await tk.rtok_gen(from_model.id,from_model.name,from_model.email,'admin')
             return res.status(200).json(new re_cus(200,`logged in using email:${email}`,{"access_token":atok,
                 "refresh_token":rtok
             }))}
@@ -237,13 +237,15 @@ try {
 //PRODUCTS
 static async ctrl_add_products(req, res) {
   try {
-    const { prod, img_url, stock, brand, desc } = req.body
+    const { prod, img_url, stock, brand, desc,price } = req.body
 
     if (!prod    || !Array.isArray(prod)    || prod.length === 0
      || !img_url || !Array.isArray(img_url) || img_url.length === 0
      || !stock   || !Array.isArray(stock)   || stock.length === 0
      || !brand   || !Array.isArray(brand)   || brand.length === 0
-     || !desc    || !Array.isArray(desc)    || desc.length === 0) {
+     || !desc    || !Array.isArray(desc)    || desc.length === 0
+     || !price    || !Array.isArray(price)    || price.length === 0)
+      {
       return res.status(400).json(new re_cus(400, 'array/s missing or invalid', null))
     }
 
@@ -252,6 +254,7 @@ static async ctrl_add_products(req, res) {
       && brand.every(i => typeof i === 'string')
       && desc.every(i => typeof i === 'string')
       && stock.every(i => Number.isInteger(i))
+      && price.every(i => Number.isInteger(i))
 
     if (!valid) {
       return res.status(400).json(new re_cus(400, 'wrong type of elements in one or more arrays', null))
@@ -261,6 +264,7 @@ static async ctrl_add_products(req, res) {
       && img_url.length === stock.length
       && stock.length === brand.length
       && brand.length === desc.length
+      && desc.length === price.length
 
     if (!check_length) {
       return res.status(400).json(new re_cus(400, 'unequal no of elements btw arrays', null))
@@ -269,7 +273,7 @@ static async ctrl_add_products(req, res) {
     const cid = req.params.cid
     const sid = req.params.sid
 
-    const from_model = await model.model_add_products_admin(prod, img_url, stock, brand, desc, cid, sid)
+    const from_model = await model.model_add_products_admin(prod, img_url, stock, brand, desc,price, cid, sid)
 
     if (!from_model.success) {
       return res.status(400).json(new re_cus(400, from_model.message, null))
@@ -317,13 +321,14 @@ static async ctrl_del_products(req,res){
 
 static async ctrl_upd_products(req,res){
 try{
-const { to_upd,new_names, new_img_url, new_stock, new_desc } = req.body
+const { to_upd,new_names, new_img_url, new_stock, new_desc,new_price } = req.body
 
     if (!to_upd    || !Array.isArray(to_upd)    || to_upd.length === 0
      || !new_img_url || !Array.isArray(new_img_url) || new_img_url.length === 0
      || !new_stock   || !Array.isArray(new_stock)   || new_stock.length === 0
      || !new_names   || !Array.isArray(new_names)   || new_names.length === 0
-     || !new_desc    || !Array.isArray(new_desc)    || new_desc.length === 0) {
+     || !new_desc    || !Array.isArray(new_desc)    || new_desc.length === 0
+     | !new_price   || !Array.isArray(new_price)    || new_price.length === 0) {
       return res.status(400).json(new re_cus(400, 'array/s missing or invalid', null))
     }
 
@@ -332,6 +337,7 @@ const { to_upd,new_names, new_img_url, new_stock, new_desc } = req.body
       && new_names.every(i => typeof i === 'string')
       && new_desc.every(i => typeof i === 'string')
       && new_stock.every(i => Number.isInteger(i))
+      && new_price.every(i => Number.isInteger(i))
 
     if (!valid) {
       return res.status(400).json(new re_cus(400, 'wrong type of elements in one or more arrays', null))
@@ -341,6 +347,7 @@ const { to_upd,new_names, new_img_url, new_stock, new_desc } = req.body
       && new_img_url.length === new_stock.length
       && new_stock.length === new_names.length
       && new_names.length === new_desc.length
+      && new_desc.length === new_price.length
 
     if (!check_length) {
       return res.status(400).json(new re_cus(400, 'unequal no of elements btw arrays', null))
@@ -349,7 +356,7 @@ const { to_upd,new_names, new_img_url, new_stock, new_desc } = req.body
     const cid = req.params.cid
     const sid = req.params.sid
 
-    const from_model = await model.model_upd_products_admin(to_upd,new_names,new_img_url,new_stock,new_desc,cid,sid)
+    const from_model = await model.model_upd_products_admin(to_upd,new_names,new_img_url,new_stock,new_desc,new_price,cid,sid)
 
     if (!from_model.success) {
       return res.status(400).json(new re_cus(400, from_model.message, null))

@@ -219,7 +219,7 @@ static async if_email_exist(e){
         }
 }
 
-static async model_add_products_admin(prod,img_url,stock,brand,desc,cid,sid){
+static async model_add_products_admin(prod, img_url, stock, brand, desc,price, cid, sid){
 const trans=await knex.transaction()
     try {
         const bulk=[]
@@ -258,7 +258,9 @@ const trans=await knex.transaction()
                     image_url:img_url[i],
                     description:desc[i],
                     stock:stock[i],
-                    brand:brand[i]
+                    brand:brand[i],
+                    price_usd:price[i]
+
                 }
             );
            }
@@ -327,7 +329,7 @@ static async model_del_products_admin(to_del,cid,sid){
     }
 }
 
-static async model_upd_products_admin(to_upd, new_names, new_img_url, new_stock, new_desc, cid, sid) {
+static async model_upd_products_admin(to_upd,new_names,new_img_url,new_stock,new_desc,new_price,cid,sid) {
   const trans = await knex.transaction()
   try {
 
@@ -360,7 +362,8 @@ static async model_upd_products_admin(to_upd, new_names, new_img_url, new_stock,
           slug: new_slug,
           image_url: new_img_url[i],
           description: new_desc[i],
-          stock: new_stock[i]
+          stock: new_stock[i],
+          price_usd:new_price[i]
         })
     }
 
