@@ -83,5 +83,37 @@ static async model_cart_add(dec_email, name, qty) {
     throw error
   }
 }
+
+static async model_cart_del(dec_email,name){
+    const trans = await knex.transaction()
+    try {
+    const product = await trans('product_tb').where({ name }).first()
+    if (!product) {
+      await trans.rollback()
+      return { success: false, message: `no product with name: ${name} exists` }
+    }
+
+    const cart = await trans('cart_tb').where({ email: dec_email, status: 'active' }).first()
+    if (!cart) {
+        await trans.rollback()
+      return { success: false, message: `no active cart for this user exists` }
+    }
+
+    const check=await trans('cart_items_tb').where({cart_id:cart.id,product_id:product.id}).del().returning('*')
+    
+    if(!check){
+        await trans.rollback()
+        return { success: false, message: `product doesn't exist in this active cart` }
+    }
+    await trans.commit()
+    return { success: true, message: `deleted from cart id: ${cart.id}`, data: check}
+
+
+    } 
+    
+    catch (error) {
+        throw error
+    }
+}
 }
 module.exports=models_cus

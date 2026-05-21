@@ -370,6 +370,7 @@ const { to_upd,new_names, new_img_url, new_stock, new_desc,new_price } = req.bod
   }
 }
 
+
 }
 
 module.exports=controller_admin

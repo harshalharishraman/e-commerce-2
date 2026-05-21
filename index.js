@@ -4,6 +4,7 @@ const view_router_cus=require('./view/router_cus')
 const view_router_item=require('./view/router_items')
 const view_router_admin=require('./view/router_admin')
 const http=require('http')
+require('./jobs/cart_cleanup')
 
 const app = exp();
 const http_server=http.createServer(app)
