@@ -3,10 +3,14 @@ module.exports={
   client:'pg',
 
   connection:{
-    host: '127.0.0.1',
+    host: 'db-backend.cpcwkiaoyii5.ap-south-1.rds.amazonaws.com',
     user: 'postgres',
-    password: process.env.pwd,
-    database: process.env.db,
+    password: 'harshal27B',
+    database: 'postgres',
+
+    ssl: {
+      rejectUnauthorized: false
+    }
   },
 
   migrations: {

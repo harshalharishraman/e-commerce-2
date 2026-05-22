@@ -5,6 +5,7 @@ const b=require('bcrypt')
 const tk=require('../token/token_cus')
 const jwt=require('jsonwebtoken')
 const enc=require('bcrypt')
+
 class models_cus{
 static async model_signup_cus(n,em,p,ma,sa,d){
     try{
