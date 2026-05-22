@@ -59,6 +59,12 @@ static async model_cart_add(dec_email, name, qty) {
       await trans.rollback()
       return { success: false, message: `no product with name: ${name} exists` }
     }
+    if(product.stock<qty){
+      await trans.rollback()
+      return { success: false, message: `not enough stock of product exists` }
+    }
+
+    await trans('product_tb').where({ id:product.id }).decrement('stock',qty)
 
     let cart = await trans('cart_tb').where({ email: dec_email, status: 'active' }).first()
     if (!cart) {
@@ -80,6 +86,7 @@ static async model_cart_add(dec_email, name, qty) {
 
   } catch (error) {
     await trans.rollback()
+    console.log(error)
     throw error
   }
 }
@@ -99,7 +106,8 @@ static async model_cart_del(dec_email,name){
       return { success: false, message: `no active cart for this user exists` }
     }
 
-    const check=await trans('cart_items_tb').where({cart_id:cart.id,product_id:product.id}).del().returning('*')
+    const check=await trans('cart_items_tb')
+    .where({cart_id:cart.id,product_id:product.id}).del().returning('*')
     
     if(!check){
         await trans.rollback()
@@ -114,6 +122,48 @@ static async model_cart_del(dec_email,name){
     catch (error) {
         throw error
     }
+}
+
+static async model_cart_checkout(dec_email){
+  const trans=await knex.transaction()
+  try {
+    const cart = await trans('cart_tb').where({ email: dec_email, status: 'active' }).first()
+    if (!cart) {
+      await trans.rollback()
+      return { success: false, message: `no active cart exist for this user`}
+    }
+    const cart_items=await trans('cart_items_tb').where({cart_id:cart.id})
+    let cost=0,shipping_cost=0,gst=0,final_cost=0
+    let p_list=[]
+    for(const i of cart_items){
+      cost+=parseInt(i.price)*(i.quantity)
+      gst+=parseInt(i.price)*(0.12)*(i.quantity)
+     const prod=await trans('product_tb').where({id:i.product_id}).first()
+     p_list.push({name:prod.name,quantity:i.quantity})
+    }
+    shipping_cost=cost*(0.20)
+    final_cost=cost+shipping_cost+gst
+
+    const coverted_to_order=await trans('cart_tb').where({id:cart.id}).first().update({status:'converted_to_order'})
+    const order=await trans('orders_tb').insert(
+      {cart_id:cart.id,final_amt:final_cost})
+await trans.commit()
+    return {success:true,
+      message:'checkout successful',
+      data:{"products":p_list,
+        "cost":cost,
+        "gst":gst,
+        "shipping_cost":shipping_cost,
+        "final_cost":final_cost}
+      
+    
+    }
+} 
+  
+  catch (error) {
+    await trans.rollback()
+    throw error
+  }
 }
 }
 module.exports=models_cus

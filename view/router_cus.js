@@ -14,4 +14,6 @@ router_cus.use((req,res,next)=>{tok.access_tok_verifly(req,res,next,'user')})
 router_cus.post('/cart/add',ctrl_cus.ctrl_add_to_cart)
 router_cus.delete('/cart/del',ctrl_cus.ctrl_del_from_cart)
 
+router_cus.post('/cart/check_out',ctrl_cus.ctrl_check_out)
+
 module.exports=router_cus
