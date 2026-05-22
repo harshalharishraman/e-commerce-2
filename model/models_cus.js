@@ -144,13 +144,17 @@ static async model_cart_checkout(dec_email){
     shipping_cost=cost*(0.20)
     final_cost=cost+shipping_cost+gst
 
-    const coverted_to_order=await trans('cart_tb').where({id:cart.id}).first().update({status:'converted_to_order'})
-    const order=await trans('orders_tb').insert(
-      {cart_id:cart.id,final_amt:final_cost})
+    const coverted_to_order=await trans('cart_tb').where({id:cart.id}).first()
+    .update({status:'converted_to_order'})
+    const [iorder]=await trans('orders_tb').insert(
+      {cart_id:cart.id,final_amt:final_cost}).returning('*')
+    const user=await trans('ecom2_cus_tb').where({email:dec_email}).first()
 await trans.commit()
     return {success:true,
       message:'checkout successful',
-      data:{"products":p_list,
+      data:{"order_id":iorder.id,
+        "shipping_address":user.secondary_address,
+        "products":p_list,
         "cost":cost,
         "gst":gst,
         "shipping_cost":shipping_cost,
