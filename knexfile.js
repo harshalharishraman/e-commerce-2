@@ -3,10 +3,10 @@ module.exports={
   client:'pg',
 
   connection:{
-    host: 'db-backend.cpcwkiaoyii5.ap-south-1.rds.amazonaws.com',
-    user: 'postgres',
-    password: 'harshal27B',
-    database: 'postgres',
+    host: process.env.aws_rds_host,
+    user: process.env.aws_rds_user,
+    password: process.env.aws_rds_ped,
+    database:process.env.aws_rds_db,
 
     ssl: {
       rejectUnauthorized: false
