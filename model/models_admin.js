@@ -266,7 +266,7 @@ const trans=await knex.transaction()
            }
             
              
-            const inserted=await trans('product_tb').insert(bulk).returning('name')
+            const inserted=await trans('product_tb').insert(bulk).returning(['name','image_url'])
             await trans.commit()
             return {success:true,data:inserted}
     } 

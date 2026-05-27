@@ -30,7 +30,7 @@ const upload = multer({
                 Date.now() +
                 path.extname(file.originalname)
 
-            cb(null, uniqueName)
+            cb(null,`sub-categories-images/${uniqueName}`)
         }
     }),
 
