@@ -5,7 +5,7 @@ module.exports={
   connection:{
     host: process.env.aws_rds_host,
     user: process.env.aws_rds_user,
-    password: process.env.aws_rds_ped,
+    password: process.env.aws_rds_prd,
     database:process.env.aws_rds_db,
 
     ssl: {

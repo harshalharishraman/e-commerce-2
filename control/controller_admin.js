@@ -237,10 +237,16 @@ try {
 //PRODUCTS
 static async ctrl_add_products(req, res) {
   try {
-    const { prod, img_url, stock, brand, desc,price } = req.body
+    const prod =[].concat(req.body.prod),
+          stock=[].concat(req.body.stock).map(Number)
+          ,brand=[].concat(req.body.brand)
+          ,desc=[].concat(req.body.desc)
+          ,price=[].concat(req.body.price).map(Number)
+          ,img_urls=req.files.map(f=>f.location)
+    
 
     if (!prod    || !Array.isArray(prod)    || prod.length === 0
-     || !img_url || !Array.isArray(img_url) || img_url.length === 0
+     || !img_urls || !Array.isArray(img_urls) || img_urls.length === 0
      || !stock   || !Array.isArray(stock)   || stock.length === 0
      || !brand   || !Array.isArray(brand)   || brand.length === 0
      || !desc    || !Array.isArray(desc)    || desc.length === 0
@@ -250,7 +256,7 @@ static async ctrl_add_products(req, res) {
     }
 
     const valid = prod.every(i => typeof i === 'string')
-      && img_url.every(i => typeof i === 'string')
+      && img_urls.every(i => typeof i === 'string')
       && brand.every(i => typeof i === 'string')
       && desc.every(i => typeof i === 'string')
       && stock.every(i => Number.isInteger(i))
@@ -260,8 +266,8 @@ static async ctrl_add_products(req, res) {
       return res.status(400).json(new re_cus(400, 'wrong type of elements in one or more arrays', null))
     }
 
-    const check_length = prod.length === img_url.length  // ✓ proper chained check
-      && img_url.length === stock.length
+    const check_length = prod.length === img_urls.length  // ✓ proper chained check
+      && img_urls.length === stock.length
       && stock.length === brand.length
       && brand.length === desc.length
       && desc.length === price.length
@@ -273,7 +279,7 @@ static async ctrl_add_products(req, res) {
     const cid = req.params.cid
     const sid = req.params.sid
 
-    const from_model = await model.model_add_products_admin(prod, img_url, stock, brand, desc,price, cid, sid)
+    const from_model = await model.model_add_products_admin(prod, img_urls, stock, brand, desc,price, cid, sid)
 
     if (!from_model.success) {
       return res.status(400).json(new re_cus(400, from_model.message, null))
