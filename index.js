@@ -5,10 +5,14 @@ const view_router_item=require('./view/router_items')
 const view_router_admin=require('./view/router_admin')
 const http=require('http')
 require('./jobs/cart_cleanup')
+const cors = require('cors')
 
 const app = exp();
 const http_server=http.createServer(app)
 const port =process.env.Port
+
+app.use(cors())
+
 app.use(exp.json());
 app.use((req,res,next)=>{
     res.setHeader('Access-Control-Allow-Origin','*');
