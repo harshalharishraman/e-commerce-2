@@ -14,6 +14,7 @@ const port =process.env.Port
 app.use(cors())
 
 app.use(exp.json());
+
 app.use((req,res,next)=>{
     res.setHeader('Access-Control-Allow-Origin','*');
     res.setHeader('Access-Control-Allow-Meathods','*');
