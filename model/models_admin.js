@@ -316,8 +316,7 @@ static async model_del_products_admin(to_del,cid,sid){
                 return { success: false, message: `${i} doesn't exist in this sub category` }}
             bulk.push(new_slug)}
             
-            await trans('product_tb').where({sub_category_id:sid}).whereIn('slug',bulk).del()
-            const new_tb=await trans('product_tb').select('name')
+            const new_tb=await trans('product_tb').where({sub_category_id:sid}).whereIn('slug',bulk).del().returning(['name'])
             await trans.commit()
             return {success:true,data:new_tb}
     } 
