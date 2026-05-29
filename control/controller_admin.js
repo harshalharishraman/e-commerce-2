@@ -297,7 +297,7 @@ static async ctrl_add_products(req, res) {
 static async ctrl_del_products(req,res){
 
     try {
-        const {names}=req.body
+        const names=[].concat(req.body.names)
         if (!names||!Array.isArray(names)|| names.length === 0){
             return res.status(400).json(new re_cus(400, 'array missing or invalid', null))
         }
