@@ -10,16 +10,15 @@ class models_admin{
         try {
             const {name,email,password,employee_id}=req.body
              const enc_p=await enc.hash(password,10)
-             const enc_n=await enc.hash(name,10)
              //const enc_e=await enc.hash(email,10)
             
                 const new_account=await knex('admin_tb').insert({
-                    name:enc_n,
+                    name:name,
                     email:email,
                     password:enc_p,
                     employee_id:employee_id
-                });
-                return new_account
+                }).returning('email');
+                return {success:true,data:new_account}
         } catch (error) {
             throw error
         }
@@ -27,13 +26,12 @@ class models_admin{
 
 static async model_login_admin(n,e,p){
     try {
-        const account=await knex('admin_tb').where({email:e}).first()
-        const dec_name=await enc.compare(n,account.name)
-        const dec_password=await enc.compare(p,account.password)
-        if(dec_name  && dec_password){
-        await knex('admin_tb').where({ email:e}).update({
-        last_login_at: knex.fn.now()})
-        return account}
+        const account=await knex('admin_tb').where({email:e,name:n}).first()
+        //const dec_name=await enc.compare(n,account.name)
+        //const dec_password=await enc.compare(p,account.password)
+        if(account){ 
+             await knex('admin_tb').where({ email:e}).update({last_login_at: knex.fn.now()})
+             return account}
         
         else{
             return false

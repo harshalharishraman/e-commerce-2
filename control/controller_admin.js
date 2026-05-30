@@ -27,7 +27,7 @@ if (!/^EMP\d{6}$/.test(employee_id)) {
               return res.status(409).json(new re_cus(null,409,'an account exists with this email'));}
         const from_model=await model.model_signup_admin(req,res)
         console.log(from_model)
-        return res.status(201).json(new re_cus(201,`new admin account created using ${res.email}`,null))
+        return res.status(201).json(new re_cus(201,`new admin account created using ${email}`,null))
     } catch (error) {
         return res.status(500).json(new re_cus(500,'internal server issue',null))
     }
