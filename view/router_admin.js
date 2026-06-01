@@ -3,7 +3,7 @@ const exp=require('express')
 const ctrl_admin=require('../control/controller_admin')
 const tok=require('../token/token_cus')
 const { crtl_get_all_categories } = require('../control/controller_item')
-const upload = require('../middlewares/upload')
+const {upload} = require('../middlewares/upload')
 
 const router_admin=exp.Router()
 

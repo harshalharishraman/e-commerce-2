@@ -4,22 +4,22 @@ const re_cus = require('../resvo/resvo_cus');
 const tk=require('../token/token_cus')
 const jwt=require('jsonwebtoken')
 const enc=require('bcrypt')
+const {del_img}=require('../middlewares/upload')
 
 class models_admin{
     static async model_signup_admin(req,res){
         try {
             const {name,email,password,employee_id}=req.body
              const enc_p=await enc.hash(password,10)
-             const enc_n=await enc.hash(name,10)
              //const enc_e=await enc.hash(email,10)
             
                 const new_account=await knex('admin_tb').insert({
-                    name:enc_n,
+                    name:name,
                     email:email,
                     password:enc_p,
                     employee_id:employee_id
-                });
-                return new_account
+                }).returning('email');
+                return {success:true,data:new_account}
         } catch (error) {
             throw error
         }
@@ -27,13 +27,12 @@ class models_admin{
 
 static async model_login_admin(n,e,p){
     try {
-        const account=await knex('admin_tb').where({email:e}).first()
-        const dec_name=await enc.compare(n,account.name)
-        const dec_password=await enc.compare(p,account.password)
-        if(dec_name  && dec_password){
-        await knex('admin_tb').where({ email:e}).update({
-        last_login_at: knex.fn.now()})
-        return account}
+        const account=await knex('admin_tb').where({email:e,name:n}).first()
+        //const dec_name=await enc.compare(n,account.name)
+        //const dec_password=await enc.compare(p,account.password)
+        if(account){ 
+             await knex('admin_tb').where({ email:e}).update({last_login_at: knex.fn.now()})
+             return account}
         
         else{
             return false
@@ -225,7 +224,7 @@ const trans=await knex.transaction()
         const bulk=[]
         let x=0
         const exist0=await trans('subcategories_tb').where({category_id:cid}).first()
-        const exist1=await trans('subcategories_tb').where({id:sid}).first()
+        const exist1=await trans('subcategories_tb').where({category_id:cid,id:sid}).first()
         if(!exist0){
                 if(!exist1){
                     return { 
@@ -245,7 +244,7 @@ const trans=await knex.transaction()
             const new_slug=prod[i].toLowerCase().replaceAll(' ','-')
             
             
-            const exist=await trans('product_tb').where({slug:new_slug,sub_category_id:sid}).first()
+            const exist=await trans('product_tb').where({slug:new_slug,sub_category_id:sid,category_id:cid}).first()
             if(exist){
              await trans.rollback()
                 return { success: false, message: `${prod[i]} already exist in prducts tb` }}
@@ -259,7 +258,8 @@ const trans=await knex.transaction()
                     description:desc[i],
                     stock:stock[i],
                     brand:brand[i],
-                    price_usd:price[i]
+                    price_usd:price[i],
+                    category_id:cid
 
                 }
             );
@@ -284,7 +284,7 @@ static async model_del_products_admin(to_del,cid,sid){
 
     const trans=await knex.transaction()
     try {
-        const bulk=[]
+        const bulk=[],products=[]
         
         
             const exist0=await trans('subcategories_tb').where({category_id:cid}).first()
@@ -314,8 +314,14 @@ static async model_del_products_admin(to_del,cid,sid){
             if(!exist){
                 await trans.rollback();
                 return { success: false, message: `${i} doesn't exist in this sub category` }}
-            bulk.push(new_slug)}
-            
+            bulk.push(new_slug)
+            products.push(exist)
+        }
+        for (const p of products) {
+            const key = decodeURIComponent(new URL(p.image_url).pathname.slice(1))
+            await del_img(key)
+        }
+
             const new_tb=await trans('product_tb').where({sub_category_id:sid}).whereIn('slug',bulk).del().returning(['name'])
             await trans.commit()
             return {success:true,data:new_tb}
@@ -331,7 +337,7 @@ static async model_del_products_admin(to_del,cid,sid){
 static async model_upd_products_admin(to_upd,new_names,new_img_url,new_stock,new_desc,new_price,cid,sid) {
   const trans = await knex.transaction()
   try {
-
+    const products=[]
     const exist0 = await trans('subcategories_tb').where({ category_id: cid }).first()
     const exist1 = await trans('subcategories_tb').where({ id: sid }).first()
     if (!exist0) {
@@ -364,8 +370,13 @@ static async model_upd_products_admin(to_upd,new_names,new_img_url,new_stock,new
           stock: new_stock[i],
           price_usd:new_price[i]
         })
+        products.push(exist)
     }
-
+    for (const p of products) {
+            const key = decodeURIComponent(new URL(p.image_url).pathname.slice(1))
+            await del_img(key)
+        }
+        
     const updated = await trans('product_tb').where({ sub_category_id: sid }).select('name')
     await trans.commit()
     return { success: true, data: updated }
