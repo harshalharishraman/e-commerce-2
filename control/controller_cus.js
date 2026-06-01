@@ -8,9 +8,6 @@ const jwt=require('jsonwebtoken')
 const app=exp();
 
 class customer_cus{
-static async ctrl_login_cus(req,res){
-    res.status(200).json(new re_cus(200,'hello',null))
-}
 static async ctrl_signup_cus(req,res){
     try{
 
@@ -54,7 +51,7 @@ static async ctrl_login_cus(req,res){
         
         const atok=await tk.atok_gen(logged_account.id,logged_account.name,logged_account.email)
         const rtok=await tk.rtok_gen(logged_account.id,logged_account.name,logged_account.email)
-        return res.status(200).json(new re_cus(200,`logged in using ${email}`,{"email":logged_account.email,"access_tok":atok,"refresh_token":rtok}))
+        return res.status(200).json(new re_cus(200,`logged in using ${email}`,{"email":logged_account.email,"access_token":atok,"refresh_token":rtok}))
 
 
         
