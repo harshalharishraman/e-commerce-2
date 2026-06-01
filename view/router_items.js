@@ -11,7 +11,6 @@ router_item.use((req,res,next)=>{
 })
 router_item.get('/categories/get_all',ctrl_item.crtl_get_all_categories)
 router_item.get('/categories/all_sub/:id',ctrl_item.crtl_get_all_subcategories)
-
-
+router_item.get('/categories/:cid/sub/:sid/products',ctrl_item.crtl_get_all_products)
 
 module.exports=router_item

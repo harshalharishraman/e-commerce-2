@@ -237,6 +237,7 @@ try {
 //PRODUCTS
 static async ctrl_add_products(req, res) {
   try {
+    
     const prod =[].concat(req.body.prod),
           stock=[].concat(req.body.stock).map(Number)
           ,brand=[].concat(req.body.brand)
@@ -297,7 +298,7 @@ static async ctrl_add_products(req, res) {
 static async ctrl_del_products(req,res){
 
     try {
-        const names=[].concat(req.body.names)
+        const {names}=req.body
         if (!names||!Array.isArray(names)|| names.length === 0){
             return res.status(400).json(new re_cus(400, 'array missing or invalid', null))
         }
@@ -327,7 +328,14 @@ static async ctrl_del_products(req,res){
 
 static async ctrl_upd_products(req,res){
 try{
-const { to_upd,new_names, new_img_url, new_stock, new_desc,new_price } = req.body
+//const { to_upd,new_names, new_img_url, new_stock, new_desc,new_price } = req.body
+const to_upd =[].concat(req.body.to_upd),
+          new_names=[].concat(req.body.new_names),
+          new_stock=[].concat(req.body.new_stock).map(Number)
+          ,brand=[].concat(req.body.brand)
+          ,new_desc=[].concat(req.body.new_desc)
+          ,new_price=[].concat(req.body.new_price).map(Number)
+          ,new_img_url=req.files.map(f=>f.location)
 
     if (!to_upd    || !Array.isArray(to_upd)    || to_upd.length === 0
      || !new_img_url || !Array.isArray(new_img_url) || new_img_url.length === 0

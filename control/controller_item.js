@@ -32,6 +32,19 @@ try {
     return res.status(500).json(new re_cus(500,'internal server issue',null))
 }
 }
+
+static async crtl_get_all_products(req,res){
+try {
+    const m = await model.models_get_all_products(req,res);
+    const n=m.map(c=>c.name)
+    const x=m.map(c=>c.image_url)
+    return res.status(200).json(new re_cus(200,'products sucessfully retrived',{"products":m}))
+
+} catch (error) {
+    console.error(error)
+    return res.status(500).json(new re_cus(500,'internal server issue',null))
+}
+}
 }
 
 module.exports=controller_item
