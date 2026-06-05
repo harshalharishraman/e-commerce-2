@@ -5,6 +5,7 @@ const b=require('bcrypt')
 const tk=require('../token/token_cus')
 const jwt=require('jsonwebtoken')
 const enc=require('bcrypt')
+const otp=require('../middlewares/otp')
 
 class models_cus{
 static async model_signup_cus(n,em,p,ma,sa,d){
@@ -169,6 +170,82 @@ await trans.commit()
     await trans.rollback()
     throw error
   }
+}
+
+static async model_otp(email) {
+
+    const trans = await knex.transaction();
+
+    try {
+
+        const otp_entry = await trans('otp_tb')
+            .where({ email })
+            .first();
+
+        // Existing row found
+        if (otp_entry) {
+
+            if (otp_entry.attempts >= 3) {
+
+                await trans.rollback();
+
+                return {
+                    success: false,
+                    message: 'OTP generation limit exceeded, try again later'
+                };
+            }
+
+            const o = await otp.otp_gener();
+
+            await trans('otp_tb')
+                .where({ email:email })
+                .update({
+                    otp_hash: await enc.hash(o, 10),
+                    expires_at: new Date(Date.now() + 15 * 60 * 1000)
+                });
+
+            await trans('otp_tb')
+                .where({ email })
+                .increment('attempts', 1);
+
+            await trans.commit();
+            const t=await otp.otp_send(o,email);
+
+            return {
+                success: true,
+                message: 'OTP sent',
+                data: t
+            };
+        }
+
+        // First OTP request
+        const o = await otp.otp_gener();
+
+        await trans('otp_tb')
+            .insert({
+                email,
+                otp_hash: await enc.hash(o, 10),
+                expires_at: new Date(Date.now() + 15 * 60 * 1000),
+                attempts: 1
+            });
+
+        await trans.commit();
+        await otp.otp_send(o,email);
+
+        return {
+            success: true,
+            message: 'OTP sent',
+            data: null
+        };
+
+    } catch (error) {
+
+        await trans.rollback();
+
+        console.error(error);
+
+        throw error;
+    }
 }
 }
 module.exports=models_cus
