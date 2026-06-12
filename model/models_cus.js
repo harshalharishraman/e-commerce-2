@@ -6,6 +6,7 @@ const tk=require('../token/token_cus')
 const jwt=require('jsonwebtoken')
 const enc=require('bcrypt')
 const otp=require('../middlewares/otp')
+const redis=require('../redis_config')
 
 class models_cus{
 static async model_signup_cus(n,em,p,ma,sa,d){
@@ -173,79 +174,76 @@ await trans.commit()
 }
 
 static async model_otp(email) {
+try {
+    console.time("redis-check");
+    const key=`otp:${email}`
 
-    const trans = await knex.transaction();
+    const if_exists=await redis.hGetAll(key)
 
-    try {
+    if(if_exists.attempts && Number(if_exists.attempts)>=3){
+        return {success:false,
+            message:"otp gen limit exceeded for timebeing,try again later",
+            data:null
+        }}
 
-        const otp_entry = await trans('otp_tb')
-            .where({ email })
-            .first();
+console.time('from otp')
+    const new_otp=await otp.otp_gener(email)
+console.timeEnd('from otp')
+    const hashed_otp=await enc.hash(new_otp,10)
+    
+    const attps=if_exists.attempts?(Number(if_exists.attempts)+1):1
 
-        // Existing row found
-        if (otp_entry) {
-
-            if (otp_entry.attempts >= 3) {
-
-                await trans.rollback();
-
-                return {
-                    success: false,
-                    message: 'OTP generation limit exceeded, try again later'
-                };
-            }
-
-            const o = await otp.otp_gener();
-
-            await trans('otp_tb')
-                .where({ email:email })
-                .update({
-                    otp_hash: await enc.hash(o, 10),
-                    expires_at: new Date(Date.now() + 15 * 60 * 1000)
-                });
-
-            await trans('otp_tb')
-                .where({ email })
-                .increment('attempts', 1);
-
-            await trans.commit();
-            const t=await otp.otp_send(o,email);
-
-            return {
-                success: true,
-                message: 'OTP sent',
-                data: t
-            };
+    const to_redis=await redis.hSet(
+        key,
+        {
+            otp_hash:hashed_otp,
+            attempts:attps
         }
+    )
 
-        // First OTP request
-        const o = await otp.otp_gener();
-
-        await trans('otp_tb')
-            .insert({
-                email,
-                otp_hash: await enc.hash(o, 10),
-                expires_at: new Date(Date.now() + 15 * 60 * 1000),
-                attempts: 1
-            });
-
-        await trans.commit();
-        await otp.otp_send(o,email);
-
-        return {
-            success: true,
-            message: 'OTP sent',
-            data: null
-        };
-
-    } catch (error) {
-
-        await trans.rollback();
-
-        console.error(error);
-
-        throw error;
+    await redis.expire(key,900)
+console.timeEnd("redis-check");
+console.time('from otp 2')
+    await otp.otp_send(new_otp,email)
+console.timeEnd('from otp 2')
+    return {success:true,
+        message:"otp sent",
+        data:null
     }
+} 
+
+catch (error) {
+    throw error
 }
 }
+
+static async model_otp_verify(email,otp){
+    try {
+       const from_otp_tb=await knex('otp_tb').where({email:email}).first()
+       if(!from_otp_tb){
+        return {success: false, message: 'unable to find otp record'};
+    }
+        if(new Date(from_otp_tb.expires_at) < new Date()){
+            return {success: false, message: 'otp expired'};
+        }
+        const is_match = await enc.compare(otp,from_otp_tb.otp_hash)
+        if(!is_match){
+            return {success: false, message: 'unable to find otp record'};
+        }
+    return {success:true,message:'correct otp'}
+
+    }
+    catch (error) {
+        console.error(error)
+        throw error
+    }
+
+
+}
+
+
+
+
+}
+
 module.exports=models_cus

@@ -15,6 +15,7 @@ To support cloud-native deployments, product images are stored in AWS S3 using M
 * JWT Authentication with Refresh Tokens
 * Role-Based Access (Admin/User)
 * PostgreSQL + Knex Query Builder
+* Redis-Based OTP Storage and Request Limiting
 * AWS S3 Product Image Storage
 * Transaction-Based Database Operations
 * Cart & Checkout System
@@ -34,6 +35,7 @@ To support cloud-native deployments, product images are stored in AWS S3 using M
 
 * PostgreSQL (AWS RDS)
 * Knex.js Query Builder
+* Redis
 
 ### Authentication
 
@@ -50,6 +52,12 @@ To support cloud-native deployments, product images are stored in AWS S3 using M
 ### Background Jobs
 
 * node-cron
+
+### Email and OTP
+
+* Resend
+* otp-generator
+* Redis
 
 ### Deployment Ready
 
@@ -552,8 +560,10 @@ Runs every hour.
 Responsibilities:
 
 * Detect abandoned carts
-* Restore reserved stock
+* Restore reserved stock using grouped, set-based updates
 * Mark carts as abandoned
+* Prevent overlapping cleanup executions
+* Report abandoned cart and restored product counts
 
 This prevents inventory from being locked indefinitely.
 
@@ -581,6 +591,10 @@ AWS_REGION=
 AWS_ACCESS_KEY=
 AWS_SECRET_KEY=
 AWS_BUCKET_NAME=
+
+RESEND_API_KEY=
+
+REDIS_URL=
 ```
 
 ---
@@ -593,6 +607,8 @@ AWS_BUCKET_NAME=
 POST   /cus/signup
 POST   /cus/login
 POST   /cus/refresh
+POST   /cus/otp/send
+GET    /cus/otp/verify
 
 POST   /cus/cart/add
 DELETE /cus/cart/del
@@ -641,6 +657,94 @@ POST   /admin/categories/:cid/sub/:sid/add
 DELETE /admin/categories/:cid/sub/:sid/del
 PUT    /admin/categories/:cid/sub/:sid/upd
 ```
+
+---
+
+# Development Update - June 12, 2026
+
+## Redis Integration
+
+A shared Redis client configuration was introduced through `redis_config.js`.
+
+The integration includes:
+
+* Connection configuration through `REDIS_URL`
+* Explicit RESP3 protocol configuration
+* Centralized Redis error handling
+* A reusable client shared across CommonJS modules
+* The `redis` package added as a project dependency
+
+---
+
+## OTP Generation Improvements
+
+OTP generation was migrated from PostgreSQL storage to Redis.
+
+The updated flow:
+
+* Validates email addresses before OTP generation
+* Generates a four-digit numeric OTP
+* Stores only the bcrypt-hashed OTP
+* Uses email-specific Redis keys in the `otp:<email>` format
+* Tracks OTP generation attempts per email address
+* Limits generation to three attempts during the active Redis key lifetime
+* Applies a 15-minute Redis expiration to OTP records
+* Sends OTP messages through the existing email service
+
+The OTP email template now communicates a five-minute validity period.
+
+---
+
+## OTP Verification Endpoint
+
+A customer OTP verification endpoint was added:
+
+```http
+GET /cus/otp/verify
+```
+
+The endpoint:
+
+* Accepts an email address and OTP
+* Validates supported email formats
+* Requires a four-digit numeric OTP
+* Returns specific validation responses for invalid email and OTP input
+* Verifies hashed OTP values using bcrypt
+* Rejects expired OTP records
+
+### Current Integration Note
+
+OTP generation currently stores records in Redis, while OTP verification reads records from the PostgreSQL `otp_tb` table. These storage paths must be aligned before the Redis-backed OTP flow can operate end to end. The configured Redis lifetime is also 15 minutes, while the email template states that the OTP is valid for five minutes.
+
+---
+
+## Cart Cleanup Optimization
+
+The hourly abandoned cart cleanup job was refactored to use a single PostgreSQL Common Table Expression transaction.
+
+Improvements include:
+
+* Bulk identification of carts inactive for more than two hours
+* Grouped stock restoration by product
+* Set-based product inventory updates
+* Atomic cart status updates
+* Explicit `Asia/Kolkata` scheduling
+* Overlap prevention for long-running cleanup executions
+* Execution-time and affected-record logging
+
+This reduces per-cart database queries and improves cleanup performance as cart volume grows.
+
+---
+
+## Configuration Updates
+
+The environment variable template now includes:
+
+```env
+REDIS_URL=
+```
+
+The project dependency manifest and lock file were updated to include Redis client support.
 
 ---
 

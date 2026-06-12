@@ -7,6 +7,16 @@ const exp = require('express');
 const jwt=require('jsonwebtoken')
 const app=exp();
 
+const isValidEmail = (email) => {
+    return typeof email === 'string' &&
+        email.includes('@') &&
+        (email.endsWith('.in') || email.endsWith('.com'))
+}
+
+const isValidOtp = (otp) => {
+    return typeof otp === 'string' && /^\d{4}$/.test(otp)
+}
+
 
 class customer_cus{
 static async ctrl_signup_cus(req,res){
@@ -186,15 +196,17 @@ const req_head_auth=req.headers.authorization
 static async crtl_otp(req,res){
     try{
         const {email}=req.body
-        if((!email.includes('@')) &&!(email.endsWith('.in')||email.endsWith('.com'))){
+    console.time('email-valid')
+        if(!isValidEmail(email)){
               return res.status(400).json(new re_cus(null,400,'invalid email'));
             }
-
+    console.timeEnd('email-valid')
+console.time('email-check')
          const ck=await model.if_email_exist(email);
+console.timeEnd('email-check')
            if(ck){
                const from_model=await model.model_otp(email)
             if(!from_model.success){
-                console.log('hello')
                 return res.status(400).json(new re_cus(400,from_model.message,from_model.data))
             }
             return res.status(200).json(new re_cus(200,from_model.message,from_model.data))
@@ -212,6 +224,38 @@ static async crtl_otp(req,res){
         return res.status(500).json(new re_cus(500,`internal server issue`,null))
     }
 }
+
+static async crtl_verify(req,res){
+    try {
+        const {email,otp}=req.body
+        const normalizedOtp = otp == null ? '' : String(otp)
+
+        if(!isValidEmail(email)){
+            if(!isValidOtp(normalizedOtp)){
+            return res.status(400).json(new re_cus(null,400,'invalid email and otp'));
+            }
+              return res.status(400).json(new re_cus(null,400,'invalid email'));
+            }
+        
+        if(!isValidOtp(normalizedOtp)){
+            return res.status(400).json(new re_cus(null,400,'invalid otp'));
+        }
+        
+        
+            const from_model=await model.model_otp_verify(email,normalizedOtp)
+            if(!from_model.success){
+                return res.status(400).json(new re_cus(400,from_model.message,from_model.data))
+            }
+            return res.status(200).json(new re_cus(200,from_model.message,from_model.data))
+ }
+    catch (error) {
+        console.error(error)
+        return res.status(500).json(new re_cus(500,`internal server issue`,null))
+        
+    }
+}
+
+
 
 }
 

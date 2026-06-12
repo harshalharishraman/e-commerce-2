@@ -9,6 +9,7 @@ router_cus.post('/signup',ctrl_cus.ctrl_signup_cus)
 router_cus.post('/login',ctrl_cus.ctrl_login_cus)
 router_cus.post('/refresh',tok.refresh)
 router_cus.post('/otp/send',ctrl_cus.crtl_otp)
+router_cus.get('/otp/verify',ctrl_cus.crtl_verify)
 
 router_cus.use((req,res,next)=>{tok.access_tok_verifly(req,res,next,'user')})
 

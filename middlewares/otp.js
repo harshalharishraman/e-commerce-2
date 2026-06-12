@@ -33,7 +33,7 @@ static async otp_send(otp,email){
                 <h2>Your OTP Code</h2>
                 <p>Your OTP is:</p>
                 <h1>${otp}</h1>
-                <p>Valid for 15 minutes.</p>
+                <p>Valid for 5 minutes.</p>
             `
         });
 
@@ -44,15 +44,6 @@ static async otp_send(otp,email){
 
 }
 
-static async otp_verfly(otp,email){
-    try {
-        
-    }
-    
-    catch (error) {
-        
-    }
-}
 
 }
 
