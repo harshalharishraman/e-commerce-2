@@ -175,7 +175,7 @@ await trans.commit()
 
 static async model_otp(email) {
 try {
-    console.time("redis-check");
+
     const key=`otp:${email}`
 
     const if_exists=await redis.hGetAll(key)
@@ -185,10 +185,18 @@ try {
             message:"otp gen limit exceeded for timebeing,try again later",
             data:null
         }}
+    const curr_time=Date.now()
+    const otp_sent_time=Number(if_exists.sent_time || 0)
 
-console.time('from otp')
+    if(otp_sent_time && curr_time-otp_sent_time <30000){
+      return {success:false,
+        message:'please wait for 30 sec min to sent next otp',
+        data:null
+      }
+    }
+
     const new_otp=await otp.otp_gener(email)
-console.timeEnd('from otp')
+
     const hashed_otp=await enc.hash(new_otp,10)
     
     const attps=if_exists.attempts?(Number(if_exists.attempts)+1):1
@@ -197,18 +205,22 @@ console.timeEnd('from otp')
         key,
         {
             otp_hash:hashed_otp,
-            attempts:attps
+            attempts:attps,
+            sent_time:curr_time
         }
     )
 
-    await redis.expire(key,900)
-console.timeEnd("redis-check");
-console.time('from otp 2')
+    await redis.expire(key,300)
+
+    try{
     await otp.otp_send(new_otp,email)
-console.timeEnd('from otp 2')
     return {success:true,
         message:"otp sent",
         data:null
+    }}
+
+    catch(err){
+      throw err
     }
 } 
 
@@ -218,27 +230,37 @@ catch (error) {
 }
 
 static async model_otp_verify(email,otp){
-    try {
-       const from_otp_tb=await knex('otp_tb').where({email:email}).first()
-       if(!from_otp_tb){
-        return {success: false, message: 'unable to find otp record'};
-    }
-        if(new Date(from_otp_tb.expires_at) < new Date()){
-            return {success: false, message: 'otp expired'};
-        }
-        const is_match = await enc.compare(otp,from_otp_tb.otp_hash)
-        if(!is_match){
-            return {success: false, message: 'unable to find otp record'};
-        }
-    return {success:true,message:'correct otp'}
+try {
+    const key=`otp:${email}`
 
-    }
-    catch (error) {
-        console.error(error)
-        throw error
+    const if_exists=await redis.hGetAll(key)
+    if(!if_exists.otp_hash){
+      return {success:false,
+        message:"email's otp not found",
+        data:null
+      }
     }
 
+    const is_correct=await enc.compare(otp,if_exists.otp_hash)
+    if(!is_correct){
+      return {success:false,
+        message:"invalid otp",
+        data:null
+      }
+    }
 
+    await redis.del(key)
+
+    return {success:true,
+      message:'otp verified',
+      data:{verified:true}
+    }
+
+    
+
+} catch (error) {
+    throw error
+}
 }
 
 

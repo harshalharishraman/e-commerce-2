@@ -406,6 +406,73 @@ Admin and customer tokens use separate secret keys.
 
 ---
 
+# Middleware and Request Processing
+
+The application uses reusable middleware and service helpers to secure routes,
+process multipart requests, manage cloud-hosted product images, and support OTP
+delivery.
+
+## JWT Authentication Middleware
+
+Protected customer, administrator, and product routes pass through the shared
+access-token verification middleware.
+
+Responsibilities include:
+
+* Requiring an `Authorization` request header
+* Enforcing the `Bearer <token>` authentication format
+* Verifying access-token signatures and expiration
+* Selecting separate JWT secret keys for customers and administrators
+* Attaching the decoded token payload to `req.user`
+* Rejecting missing, malformed, invalid, or expired tokens
+
+Public registration, login, refresh-token, and OTP routes are registered before
+the customer authentication middleware and remain accessible without an access
+token.
+
+---
+
+## Product Image Upload Middleware
+
+Product create and update routes use Multer with Multer-S3 to process multipart
+image uploads and stream files directly to AWS S3.
+
+Upload behavior:
+
+* Accepts images from the `images` multipart field
+* Supports multiple product images per request
+* Limits each uploaded file to 5 MB
+* Automatically preserves the uploaded file content type
+* Generates timestamp-based object names
+* Stores objects under the `sub-categories-images/` S3 prefix
+* Uses environment-based AWS region, credentials, and bucket configuration
+
+Product deletion operations use the shared S3 deletion helper to remove image
+objects from the configured bucket. Delete requests use `upload.none()` to
+parse multipart form fields without accepting files.
+
+---
+
+## OTP Generation and Email Helper
+
+The OTP helper in `middlewares/otp.js` supports the customer verification flow.
+Although it is consumed as a service helper rather than route middleware, it is
+kept in the middleware module directory.
+
+Responsibilities include:
+
+* Generating four-digit numeric OTP values
+* Excluding alphabetic and special characters
+* Sending OTP messages through Resend
+* Providing an HTML email template
+* Communicating the five-minute OTP validity period
+* Propagating delivery errors to the customer model for centralized handling
+
+OTP hashing, Redis storage, request limiting, expiration, and verification are
+handled by the customer model.
+
+---
+
 # Database Design
 
 Main tables:
@@ -660,7 +727,7 @@ PUT    /admin/categories/:cid/sub/:sid/upd
 
 ---
 
-# Development Update - June 12, 2026
+# Development Update - June 14, 2026
 
 ## Redis Integration
 
@@ -686,12 +753,15 @@ The updated flow:
 * Generates a four-digit numeric OTP
 * Stores only the bcrypt-hashed OTP
 * Uses email-specific Redis keys in the `otp:<email>` format
+* Records the latest OTP delivery time for each email address
+* Enforces a 30-second cooldown between OTP requests
 * Tracks OTP generation attempts per email address
 * Limits generation to three attempts during the active Redis key lifetime
-* Applies a 15-minute Redis expiration to OTP records
+* Applies a five-minute Redis expiration to OTP records
 * Sends OTP messages through the existing email service
 
-The OTP email template now communicates a five-minute validity period.
+The Redis expiration now matches the five-minute validity period communicated
+by the OTP email template.
 
 ---
 
@@ -709,12 +779,36 @@ The endpoint:
 * Validates supported email formats
 * Requires a four-digit numeric OTP
 * Returns specific validation responses for invalid email and OTP input
-* Verifies hashed OTP values using bcrypt
-* Rejects expired OTP records
+* Reads the email-specific OTP record directly from Redis
+* Verifies the submitted OTP against its bcrypt hash
+* Rejects missing, expired, or incorrect OTP values
+* Deletes the Redis key after successful verification
+* Returns a `verified: true` result when verification succeeds
 
-### Current Integration Note
+The OTP flow is now Redis-backed end to end. Deleting a verified OTP makes it
+single-use and prevents replay after successful validation.
 
-OTP generation currently stores records in Redis, while OTP verification reads records from the PostgreSQL `otp_tb` table. These storage paths must be aligned before the Redis-backed OTP flow can operate end to end. The configured Redis lifetime is also 15 minutes, while the email template states that the OTP is valid for five minutes.
+---
+
+## OTP Request Protection
+
+OTP delivery now includes two complementary request controls:
+
+* A minimum 30-second interval between consecutive OTP requests
+* A maximum of three OTP generations during the active five-minute key lifetime
+
+These controls reduce repeated email delivery and limit OTP-generation abuse.
+The request counters and cooldown metadata are automatically removed when the
+Redis key expires or when the OTP is successfully verified.
+
+---
+
+## Runtime Logging Cleanup
+
+Temporary timing logs used during local OTP testing were removed from the
+customer controller and model. Production logs are therefore no longer
+populated with development-only email validation, Redis, and OTP delivery
+timings.
 
 ---
 

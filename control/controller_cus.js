@@ -196,14 +196,14 @@ const req_head_auth=req.headers.authorization
 static async crtl_otp(req,res){
     try{
         const {email}=req.body
-    console.time('email-valid')
+
         if(!isValidEmail(email)){
               return res.status(400).json(new re_cus(null,400,'invalid email'));
             }
-    console.timeEnd('email-valid')
-console.time('email-check')
+
+
          const ck=await model.if_email_exist(email);
-console.timeEnd('email-check')
+
            if(ck){
                const from_model=await model.model_otp(email)
             if(!from_model.success){

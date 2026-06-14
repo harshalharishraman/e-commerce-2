@@ -24,3 +24,4 @@ redisClient.connect().catch((error) => {
 
 // Other CommonJS files can access this shared client with require("./redis_config").
 module.exports = redisClient;
+
