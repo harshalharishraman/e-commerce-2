@@ -6,7 +6,13 @@ This project is a production-oriented e-commerce backend built using Node.js, Ex
 
 The platform provides dedicated customer and administrator modules secured through JWT-based authentication and role-based access control. Customers can browse products, manage carts, and place orders, while administrators can manage categories, subcategories, products, inventory, and platform data. Secure password hashing and transactional operations help maintain application security and data integrity.
 
-To support cloud-native deployments, product images are stored in AWS S3 using Multer-S3 integration, eliminating dependence on local storage. PostgreSQL transactions ensure consistency during inventory and checkout operations, while cron-based background jobs automate abandoned cart cleanup and inventory restoration. The system is designed with reliability, performance, and scalability as core architectural priorities.
+To support cloud-native deployments, product images are stored in AWS S3 using
+Multer-S3 integration, eliminating dependence on local storage. PostgreSQL
+transactions ensure consistency during inventory and checkout operations.
+Redis supports OTP storage and BullMQ job coordination, while a dedicated
+worker processes scheduled abandoned-cart cleanup and inventory restoration.
+The system is designed with reliability, performance, and scalability as core
+architectural priorities.
 
 ---
 
@@ -19,7 +25,8 @@ To support cloud-native deployments, product images are stored in AWS S3 using M
 * AWS S3 Product Image Storage
 * Transaction-Based Database Operations
 * Cart & Checkout System
-* Automated Cart Cleanup Job
+* BullMQ-Based Background Job Processing
+* Automated Cart Cleanup and Inventory Restoration
 * Modular MVC Architecture
 * Production Deployment Ready
 * Scalable Cloud-Native Design
@@ -51,7 +58,8 @@ To support cloud-native deployments, product images are stored in AWS S3 using M
 
 ### Background Jobs
 
-* node-cron
+* BullMQ
+* Redis
 
 ### Email and OTP
 
@@ -79,6 +87,20 @@ Controllers
 Models
    ↓
 PostgreSQL Database
+```
+
+Background processing follows a queue-based flow:
+
+```text
+Application Startup
+    |
+BullMQ Scheduler
+    |
+Redis Cart Queue
+    |
+Dedicated Cart Worker
+    |
+Cart Cleanup Transaction
 ```
 
 ### Folder Structure
@@ -120,6 +142,18 @@ e-commerce-2/
 └── .env
 ```
 
+### Background Processing Components
+
+```text
+src/
+|-- queue.js       BullMQ queue and Redis connection configuration
+|-- scheduler.js   Recurring cart-cleanup schedule registration
+`-- worker.js      Dedicated cart queue worker
+
+jobs/
+`-- cart_cleanup.js   Transactional cart-cleanup job
+```
+
 ---
 
 # Core Features
@@ -153,6 +187,27 @@ Successful login generates:
 
 * Access Token (30 minutes)
 * Refresh Token (7 days)
+
+---
+
+### Email OTP Verification
+
+Customer email verification uses a Redis-backed, single-use OTP flow.
+
+The flow:
+
+* Validates the customer email before generating an OTP
+* Generates a four-digit numeric OTP
+* Stores only the bcrypt-hashed OTP under `otp:<email>`
+* Applies a five-minute expiration
+* Enforces a 30-second cooldown between requests
+* Limits generation to three attempts during the active key lifetime
+* Sends the OTP through Resend
+* Verifies the submitted value against the stored hash
+* Deletes the Redis key after successful verification
+
+Removing the key after verification prevents OTP replay. Expired, missing, and
+incorrect OTP values are rejected.
 
 ---
 
@@ -355,6 +410,10 @@ Returns complete category list.
 ### View Subcategories
 
 Returns subcategories under a selected category.
+
+### View Products by Category and Subcategory
+
+Returns products associated with the selected category and subcategory IDs.
 
 ---
 
@@ -594,6 +653,31 @@ Stores:
 
 ---
 
+# Redis Usage
+
+Redis supports two independent application concerns:
+
+## OTP Records
+
+The reusable CommonJS client in `redis_config.js` connects through `REDIS_URL`,
+uses RESP3, and centrally reports Redis connection and runtime errors. OTP data
+is stored in email-specific hashes containing the bcrypt hash,
+generation-attempt count, and latest delivery timestamp. Records expire after
+five minutes and are removed immediately after successful verification.
+
+## BullMQ Queue
+
+BullMQ uses Redis to coordinate the recurring cart-cleanup scheduler and the
+dedicated cart worker. Queue jobs retry up to three times with exponential
+backoff beginning at five seconds. Completed and failed job history is bounded
+to prevent unlimited Redis growth.
+
+The current BullMQ connection targets `localhost:6379` in `src/queue.js`.
+Deployments using a remote Redis service must update this queue connection
+configuration in addition to setting `REDIS_URL` for OTP storage.
+
+---
+
 # Transaction Management
 
 Critical operations use PostgreSQL transactions:
@@ -616,21 +700,33 @@ Benefits:
 
 ## Cart Cleanup Job
 
-Implemented using:
+Cart cleanup is implemented as a BullMQ recurring job rather than an in-process
+cron callback.
 
-```text
-node-cron
-```
+Processing flow:
 
-Runs every hour.
+* Application startup registers the recurring scheduler
+* The `cart` queue stores scheduled cleanup jobs in Redis
+* A separately started worker consumes `cart-cleanup` jobs
+* Worker concurrency is limited to one job at a time
+* Failed jobs retry up to three times with exponential backoff
+* Worker completion and failure events are logged
+
+The schedule uses the cron pattern `0 * * * *`, which queues a cleanup job at
+the start of every hour.
 
 Responsibilities:
 
-* Detect abandoned carts
+* Detect active carts unchanged for more than two hours
 * Restore reserved stock using grouped, set-based updates
-* Mark carts as abandoned
-* Prevent overlapping cleanup executions
+* Mark matching carts as abandoned within the same transaction
 * Report abandoned cart and restored product counts
+* Report total cleanup execution time
+
+The cleanup uses a single PostgreSQL Common Table Expression transaction for
+bulk cart selection, grouped inventory restoration, and atomic cart status
+updates. Errors are rethrown to BullMQ so its retry policy can handle transient
+failures.
 
 This prevents inventory from being locked indefinitely.
 
@@ -664,6 +760,35 @@ RESEND_API_KEY=
 REDIS_URL=
 ```
 
+`REDIS_URL` configures the shared OTP Redis client. The BullMQ queue currently
+uses `localhost:6379` from `src/queue.js`.
+
+---
+
+# Running the Application
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the API server and register the recurring cart-cleanup schedule:
+
+```bash
+npm start
+```
+
+Start the cart worker in a separate process:
+
+```bash
+npm run worker:cart
+```
+
+The API startup waits for successful scheduler registration before opening the
+HTTP port. If registration fails, startup exits with an error instead of
+running without the scheduled cleanup process.
+
 ---
 
 # API Route Summary
@@ -689,6 +814,7 @@ POST   /cus/cart/check_out
 ```http
 GET /cus/categories/get_all
 GET /cus/categories/all_sub/:id
+GET /cus/categories/:cid/sub/:sid/products
 ```
 
 ---
@@ -724,122 +850,5 @@ POST   /admin/categories/:cid/sub/:sid/add
 DELETE /admin/categories/:cid/sub/:sid/del
 PUT    /admin/categories/:cid/sub/:sid/upd
 ```
-
----
-
-# Development Update - June 14, 2026
-
-## Redis Integration
-
-A shared Redis client configuration was introduced through `redis_config.js`.
-
-The integration includes:
-
-* Connection configuration through `REDIS_URL`
-* Explicit RESP3 protocol configuration
-* Centralized Redis error handling
-* A reusable client shared across CommonJS modules
-* The `redis` package added as a project dependency
-
----
-
-## OTP Generation Improvements
-
-OTP generation was migrated from PostgreSQL storage to Redis.
-
-The updated flow:
-
-* Validates email addresses before OTP generation
-* Generates a four-digit numeric OTP
-* Stores only the bcrypt-hashed OTP
-* Uses email-specific Redis keys in the `otp:<email>` format
-* Records the latest OTP delivery time for each email address
-* Enforces a 30-second cooldown between OTP requests
-* Tracks OTP generation attempts per email address
-* Limits generation to three attempts during the active Redis key lifetime
-* Applies a five-minute Redis expiration to OTP records
-* Sends OTP messages through the existing email service
-
-The Redis expiration now matches the five-minute validity period communicated
-by the OTP email template.
-
----
-
-## OTP Verification Endpoint
-
-A customer OTP verification endpoint was added:
-
-```http
-GET /cus/otp/verify
-```
-
-The endpoint:
-
-* Accepts an email address and OTP
-* Validates supported email formats
-* Requires a four-digit numeric OTP
-* Returns specific validation responses for invalid email and OTP input
-* Reads the email-specific OTP record directly from Redis
-* Verifies the submitted OTP against its bcrypt hash
-* Rejects missing, expired, or incorrect OTP values
-* Deletes the Redis key after successful verification
-* Returns a `verified: true` result when verification succeeds
-
-The OTP flow is now Redis-backed end to end. Deleting a verified OTP makes it
-single-use and prevents replay after successful validation.
-
----
-
-## OTP Request Protection
-
-OTP delivery now includes two complementary request controls:
-
-* A minimum 30-second interval between consecutive OTP requests
-* A maximum of three OTP generations during the active five-minute key lifetime
-
-These controls reduce repeated email delivery and limit OTP-generation abuse.
-The request counters and cooldown metadata are automatically removed when the
-Redis key expires or when the OTP is successfully verified.
-
----
-
-## Runtime Logging Cleanup
-
-Temporary timing logs used during local OTP testing were removed from the
-customer controller and model. Production logs are therefore no longer
-populated with development-only email validation, Redis, and OTP delivery
-timings.
-
----
-
-## Cart Cleanup Optimization
-
-The hourly abandoned cart cleanup job was refactored to use a single PostgreSQL Common Table Expression transaction.
-
-Improvements include:
-
-* Bulk identification of carts inactive for more than two hours
-* Grouped stock restoration by product
-* Set-based product inventory updates
-* Atomic cart status updates
-* Explicit `Asia/Kolkata` scheduling
-* Overlap prevention for long-running cleanup executions
-* Execution-time and affected-record logging
-
-This reduces per-cart database queries and improves cleanup performance as cart volume grows.
-
----
-
-## Configuration Updates
-
-The environment variable template now includes:
-
-```env
-REDIS_URL=
-```
-
-The project dependency manifest and lock file were updated to include Redis client support.
-
----
 
 

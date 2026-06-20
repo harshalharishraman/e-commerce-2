@@ -4,7 +4,8 @@ const view_router_cus=require('./view/router_cus')
 const view_router_item=require('./view/router_items')
 const view_router_admin=require('./view/router_admin')
 const http=require('http')
-require('./jobs/cart_cleanup')
+const scheduler=require('./src/scheduler')
+//require('./jobs/cart_cleanup')
 const cors = require('cors')
 
 const app = exp();
@@ -32,7 +33,19 @@ app.use('/admin',view_router_admin)
 
 app.use('/admin',view_router_item)
 
-http_server.listen(port,()=>{
-    console.log(`server started and listening at port:${port}`)
-});
+async function start_server(){
+    try {
+        
+        await scheduler.cart_cleanup_scheduler()
+        
+        http_server.listen(port,()=>{console.log
+            (`server started and listening at port:${port}`)});
+
+    } catch (error) {
+        console.log(`app startup failed:\nerror:${error}`)
+        process.exit(1)
+    }
+}
+
+start_server()
 
