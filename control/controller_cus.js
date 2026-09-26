@@ -67,28 +67,28 @@ static async ctrl_add_to_cart(req,res,src='user'){
     const req_head_auth=req.headers.authorization
 
     if(!req_head_auth){
-        return res.status(400).json(new resp_cus(400, 'missing header', null));
+        return res.status(400).json(new re_cus(400, 'missing header', null));
     }
 
    if (!req_head_auth.startsWith('Bearer ')) {
-            return res.status(400).json(new resp_cus(400, 'invalid auth format, use: Bearer <token>', null));
+            return res.status(400).json(new re_cus(400, 'invalid auth format, use: Bearer <token>', null));
         }
     
 
     const acc_tk=req_head_auth.split(" ")[1]
 
     if(!acc_tk){
-              return res.status(400).json(new resp_cus(400,'token missing',null))
+              return res.status(400).json(new re_cus(400,'token missing',null))
   
     }
 
     const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
     const dec=jwt.verify(acc_tk,key)
     if(!dec){
-        return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
+        return res.status(500).json(new re_cus(500,'corrupted jwt',null))
     }
     const dec_email=dec.email
-    const {name,qty}=req.body
+    const {name,qty=1}=req.body
     const from_model=await model.model_cart_add(dec_email,name,qty)
     if(!from_model.success){
             return res.status(400).json(new re_cus(400,from_model.message,null))
@@ -107,29 +107,29 @@ try {
     const req_head_auth=req.headers.authorization
 
     if(!req_head_auth){
-        return res.status(400).json(new resp_cus(400, 'missing header', null));
+        return res.status(400).json(new re_cus(400, 'missing header', null));
     }
 
    if (!req_head_auth.startsWith('Bearer ')) {
-            return res.status(400).json(new resp_cus(400, 'invalid auth format, use: Bearer <token>', null));
+            return res.status(400).json(new re_cus(400, 'invalid auth format, use: Bearer <token>', null));
         }
     
 
     const acc_tk=req_head_auth.split(" ")[1]
 
     if(!acc_tk){
-              return res.status(400).json(new resp_cus(400,'token missing',null))
+              return res.status(400).json(new re_cus(400,'token missing',null))
   
     }
 
     const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
     const dec=jwt.verify(acc_tk,key)
     if(!dec){
-        return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
+        return res.status(500).json(new re_cus(500,'corrupted jwt',null))
     }
     const dec_email=dec.email
-    const {name}=req.body
-    const from_model=await model.model_cart_del(dec_email,name)
+    const {name,qty=1}=req.body
+    const from_model=await model.model_cart_del(dec_email,name,qty)
     if(!from_model.success){
             return res.status(400).json(new re_cus(400,from_model.message,null))
         }
@@ -147,25 +147,25 @@ static async ctrl_check_out(req,res,src='user'){
 const req_head_auth=req.headers.authorization
 
     if(!req_head_auth){
-        return res.status(400).json(new resp_cus(400, 'missing header', null));
+        return res.status(400).json(new re_cus(400, 'missing header', null));
     }
 
    if (!req_head_auth.startsWith('Bearer ')) {
-            return res.status(400).json(new resp_cus(400, 'invalid auth format, use: Bearer <token>', null));
+            return res.status(400).json(new re_cus(400, 'invalid auth format, use: Bearer <token>', null));
         }
     
 
     const acc_tk=req_head_auth.split(" ")[1]
 
     if(!acc_tk){
-              return res.status(400).json(new resp_cus(400,'token missing',null))
+              return res.status(400).json(new re_cus(400,'token missing',null))
   
     }
 
     const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
     const dec=jwt.verify(acc_tk,key)
     if(!dec){
-        return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
+        return res.status(500).json(new re_cus(500,'corrupted jwt',null))
     }
     const dec_email=dec.email
     const from_model=await model.model_cart_checkout(dec_email)
