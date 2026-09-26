@@ -6,13 +6,7 @@ This project is a production-oriented e-commerce backend built using Node.js, Ex
 
 The platform provides dedicated customer and administrator modules secured through JWT-based authentication and role-based access control. Customers can browse products, manage carts, and place orders, while administrators can manage categories, subcategories, products, inventory, and platform data. Secure password hashing and transactional operations help maintain application security and data integrity.
 
-To support cloud-native deployments, product images are stored in AWS S3 using
-Multer-S3 integration, eliminating dependence on local storage. PostgreSQL
-transactions ensure consistency during inventory and checkout operations.
-Redis supports OTP storage and BullMQ job coordination, while a dedicated
-worker processes scheduled abandoned-cart cleanup and inventory restoration.
-The system is designed with reliability, performance, and scalability as core
-architectural priorities.
+
 
 ---
 
