@@ -63,7 +63,7 @@ temp/
 
 # Uploads (optional)
 uploads/
-
+reveerse_proxy.txt
 # Package lock files (optional)
 # package-lock.json
 # yarn.lock

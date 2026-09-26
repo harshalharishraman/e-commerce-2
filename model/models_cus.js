@@ -5,6 +5,8 @@ const b=require('bcrypt')
 const tk=require('../token/token_cus')
 const jwt=require('jsonwebtoken')
 const enc=require('bcrypt')
+const otp=require('../middlewares/otp')
+const redis=require('../redis_config')
 
 class models_cus{
 static async model_signup_cus(n,em,p,ma,sa,d){
@@ -170,5 +172,100 @@ await trans.commit()
     throw error
   }
 }
+
+static async model_otp(email) {
+try {
+
+    const key=`otp:${email}`
+
+    const if_exists=await redis.hGetAll(key)
+
+    if(if_exists.attempts && Number(if_exists.attempts)>=3){
+        return {success:false,
+            message:"otp gen limit exceeded for timebeing,try again later",
+            data:null
+        }}
+    const curr_time=Date.now()
+    const otp_sent_time=Number(if_exists.sent_time || 0)
+
+    if(otp_sent_time && curr_time-otp_sent_time <30000){
+      return {success:false,
+        message:'please wait for 30 sec min to sent next otp',
+        data:null
+      }
+    }
+
+    const new_otp=await otp.otp_gener(email)
+
+    const hashed_otp=await enc.hash(new_otp,10)
+    
+    const attps=if_exists.attempts?(Number(if_exists.attempts)+1):1
+
+    const to_redis=await redis.hSet(
+        key,
+        {
+            otp_hash:hashed_otp,
+            attempts:attps,
+            sent_time:curr_time
+        }
+    )
+
+    await redis.expire(key,300)
+
+    try{
+    await otp.otp_send(new_otp,email)
+    return {success:true,
+        message:"otp sent",
+        data:null
+    }}
+
+    catch(err){
+      throw err
+    }
+} 
+
+catch (error) {
+    throw error
 }
+}
+
+static async model_otp_verify(email,otp){
+try {
+    const key=`otp:${email}`
+
+    const if_exists=await redis.hGetAll(key)
+    if(!if_exists.otp_hash){
+      return {success:false,
+        message:"email's otp not found",
+        data:null
+      }
+    }
+
+    const is_correct=await enc.compare(otp,if_exists.otp_hash)
+    if(!is_correct){
+      return {success:false,
+        message:"invalid otp",
+        data:null
+      }
+    }
+
+    await redis.del(key)
+
+    return {success:true,
+      message:'otp verified',
+      data:{verified:true}
+    }
+
+    
+
+} catch (error) {
+    throw error
+}
+}
+
+
+
+
+}
+
 module.exports=models_cus

@@ -7,6 +7,17 @@ const exp = require('express');
 const jwt=require('jsonwebtoken')
 const app=exp();
 
+const isValidEmail = (email) => {
+    return typeof email === 'string' &&
+        email.includes('@') &&
+        (email.endsWith('.in') || email.endsWith('.com'))
+}
+
+const isValidOtp = (otp) => {
+    return typeof otp === 'string' && /^\d{4}$/.test(otp)
+}
+
+
 class customer_cus{
 static async ctrl_signup_cus(req,res){
     try{
@@ -67,25 +78,25 @@ static async ctrl_add_to_cart(req,res,src='user'){
     const req_head_auth=req.headers.authorization
 
     if(!req_head_auth){
-        return res.status(400).json(new resp_cus(400, 'missing header', null));
+        return res.status(400).json(new re_cus(400, 'missing header', null));
     }
 
    if (!req_head_auth.startsWith('Bearer ')) {
-            return res.status(400).json(new resp_cus(400, 'invalid auth format, use: Bearer <token>', null));
+            return res.status(400).json(new re_cus(400, 'invalid auth format, use: Bearer <token>', null));
         }
     
 
     const acc_tk=req_head_auth.split(" ")[1]
 
     if(!acc_tk){
-              return res.status(400).json(new resp_cus(400,'token missing',null))
+              return res.status(400).json(new re_cus(400,'token missing',null))
   
     }
 
     const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
     const dec=jwt.verify(acc_tk,key)
     if(!dec){
-        return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
+        return res.status(500).json(new re_cus(500,'corrupted jwt',null))
     }
     const dec_email=dec.email
     const {name,qty}=req.body
@@ -107,25 +118,25 @@ try {
     const req_head_auth=req.headers.authorization
 
     if(!req_head_auth){
-        return res.status(400).json(new resp_cus(400, 'missing header', null));
+        return res.status(400).json(new re_cus(400, 'missing header', null));
     }
 
    if (!req_head_auth.startsWith('Bearer ')) {
-            return res.status(400).json(new resp_cus(400, 'invalid auth format, use: Bearer <token>', null));
+            return res.status(400).json(new re_cus(400, 'invalid auth format, use: Bearer <token>', null));
         }
     
 
     const acc_tk=req_head_auth.split(" ")[1]
 
     if(!acc_tk){
-              return res.status(400).json(new resp_cus(400,'token missing',null))
+              return res.status(400).json(new re_cus(400,'token missing',null))
   
     }
 
     const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
     const dec=jwt.verify(acc_tk,key)
     if(!dec){
-        return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
+        return res.status(500).json(new re_cus(500,'corrupted jwt',null))
     }
     const dec_email=dec.email
     const {name}=req.body
@@ -147,32 +158,32 @@ static async ctrl_check_out(req,res,src='user'){
 const req_head_auth=req.headers.authorization
 
     if(!req_head_auth){
-        return res.status(400).json(new resp_cus(400, 'missing header', null));
+        return res.status(400).json(new re_cus(400, 'missing header', null));
     }
 
    if (!req_head_auth.startsWith('Bearer ')) {
-            return res.status(400).json(new resp_cus(400, 'invalid auth format, use: Bearer <token>', null));
+            return res.status(400).json(new re_cus(400, 'invalid auth format, use: Bearer <token>', null));
         }
     
 
     const acc_tk=req_head_auth.split(" ")[1]
 
     if(!acc_tk){
-              return res.status(400).json(new resp_cus(400,'token missing',null))
+              return res.status(400).json(new re_cus(400,'token missing',null))
   
     }
 
     const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
     const dec=jwt.verify(acc_tk,key)
     if(!dec){
-        return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
+        return res.status(500).json(new re_cus(500,'corrupted jwt',null))
     }
     const dec_email=dec.email
     const from_model=await model.model_cart_checkout(dec_email)
     if(!from_model.success){
             return res.status(400).json(new re_cus(400,from_model.message,null))
         }
-        return res.status(201).json(new re_cus(200,from_model.message,{"reciept":from_model.data}))
+        return res.status(201).json(new re_cus(201,from_model.message,{"reciept":from_model.data}))
     } 
     
     catch (error) {
@@ -182,7 +193,70 @@ const req_head_auth=req.headers.authorization
 }
 
 
+static async crtl_otp(req,res){
+    try{
+        const {email}=req.body
+
+        if(!isValidEmail(email)){
+              return res.status(400).json(new re_cus(null,400,'invalid email'));
+            }
+
+
+         const ck=await model.if_email_exist(email);
+
+           if(ck){
+               const from_model=await model.model_otp(email)
+            if(!from_model.success){
+                return res.status(400).json(new re_cus(400,from_model.message,from_model.data))
+            }
+            return res.status(200).json(new re_cus(200,from_model.message,from_model.data))
+
+            }
+            else{
+                return res.status(400).json(new re_cus(400,`no account with email:${email}`,null))
+            }
+        }
+
+    
+
+    catch(error){
+        console.error(error)
+        return res.status(500).json(new re_cus(500,`internal server issue`,null))
+    }
 }
 
+static async crtl_verify(req,res){
+    try {
+        const {email,otp}=req.body
+        const normalizedOtp = otp == null ? '' : String(otp)
+
+        if(!isValidEmail(email)){
+            if(!isValidOtp(normalizedOtp)){
+            return res.status(400).json(new re_cus(null,400,'invalid email and otp'));
+            }
+              return res.status(400).json(new re_cus(null,400,'invalid email'));
+            }
+        
+        if(!isValidOtp(normalizedOtp)){
+            return res.status(400).json(new re_cus(null,400,'invalid otp'));
+        }
+        
+        
+            const from_model=await model.model_otp_verify(email,normalizedOtp)
+            if(!from_model.success){
+                return res.status(400).json(new re_cus(400,from_model.message,from_model.data))
+            }
+            return res.status(200).json(new re_cus(200,from_model.message,from_model.data))
+ }
+    catch (error) {
+        console.error(error)
+        return res.status(500).json(new re_cus(500,`internal server issue`,null))
+        
+    }
+}
+
+
+
+}
 
 module.exports=customer_cus

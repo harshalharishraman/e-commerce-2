@@ -8,7 +8,7 @@ const enc=require('bcrypt')
 class models_item{
 static async models_get_all_categories(req,res){
 try {
-    const to_c=await knex('categories').select('name')
+    const to_c=await knex('categories').select(['name','id'])
     if(!to_c){
         return res.status(400).json(new re_cus(400,'uable to retrive categories',null))
     }
@@ -21,7 +21,7 @@ try {
 static async models_get_all_subcategories(req,res){
     try{
         const id=req.params.id
-       const to_ctrl=await knex('subcategories_tb').where({category_id:id}).select('name')
+       const to_ctrl=await knex('subcategories_tb').where({category_id:id}).select(['name','id'])
        if(!to_ctrl){
         return res.status(400).json(new re_cus(400,'unable to retrive sub_categories',null))
     }
@@ -52,7 +52,7 @@ static async models_get_all_products(req,res){
         if(!sid){
             return res.status(400).json(new re_cus(400,'no such category or sub_category in such catgroy',null))
         }
-        const to_ctrl=await knex('product_tb').where({sub_category_id:sid,category_id:cid}).select(['name','image_url'])
+        const to_ctrl=await knex('product_tb').where({sub_category_id:sid,category_id:cid}).select(['id','name','image_url','description','price_usd'])
        if(!to_ctrl){
         return res.status(400).json(new re_cus(400,'unable to retrive products',null))
     }

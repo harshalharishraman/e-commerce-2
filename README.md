@@ -6,7 +6,7 @@ This project is a production-oriented e-commerce backend built using Node.js, Ex
 
 The platform provides dedicated customer and administrator modules secured through JWT-based authentication and role-based access control. Customers can browse products, manage carts, and place orders, while administrators can manage categories, subcategories, products, inventory, and platform data. Secure password hashing and transactional operations help maintain application security and data integrity.
 
-To support cloud-native deployments, product images are stored in AWS S3 using Multer-S3 integration and application is ran in an ec2 instance, eliminating dependence on local storage. PostgreSQL transactions ensure consistency during inventory and checkout operations, while cron-based background jobs automate abandoned cart cleanup and inventory restoration. The system is designed with reliability, performance, and scalability as core architectural priorities.
+
 
 ---
 
@@ -15,10 +15,12 @@ To support cloud-native deployments, product images are stored in AWS S3 using M
 * JWT Authentication with Refresh Tokens
 * Role-Based Access (Admin/User)
 * PostgreSQL + Knex Query Builder
+* Redis-Based OTP Storage and Request Limiting
 * AWS S3 Product Image Storage
 * Transaction-Based Database Operations
 * Cart & Checkout System
-* Automated Cart Cleanup Job
+* BullMQ-Based Background Job Processing
+* Automated Cart Cleanup and Inventory Restoration
 * Modular MVC Architecture
 * Production Deployment Ready
 * Scalable Cloud-Native Design
@@ -34,6 +36,7 @@ To support cloud-native deployments, product images are stored in AWS S3 using M
 
 * PostgreSQL (AWS RDS)
 * Knex.js Query Builder
+* Redis
 
 ### Authentication
 
@@ -49,7 +52,14 @@ To support cloud-native deployments, product images are stored in AWS S3 using M
 
 ### Background Jobs
 
-* node-cron
+* BullMQ
+* Redis
+
+### Email and OTP
+
+* Resend
+* otp-generator
+* Redis
 
 ### Deployment Ready
 
@@ -71,6 +81,20 @@ Controllers
 Models
    ↓
 PostgreSQL Database
+```
+
+Background processing follows a queue-based flow:
+
+```text
+Application Startup
+    |
+BullMQ Scheduler
+    |
+Redis Cart Queue
+    |
+Dedicated Cart Worker
+    |
+Cart Cleanup Transaction
 ```
 
 ### Folder Structure
@@ -112,6 +136,18 @@ e-commerce-2/
 └── .env
 ```
 
+### Background Processing Components
+
+```text
+src/
+|-- queue.js       BullMQ queue and Redis connection configuration
+|-- scheduler.js   Recurring cart-cleanup schedule registration
+`-- worker.js      Dedicated cart queue worker
+
+jobs/
+`-- cart_cleanup.js   Transactional cart-cleanup job
+```
+
 ---
 
 # Core Features
@@ -145,6 +181,27 @@ Successful login generates:
 
 * Access Token (30 minutes)
 * Refresh Token (7 days)
+
+---
+
+### Email OTP Verification
+
+Customer email verification uses a Redis-backed, single-use OTP flow.
+
+The flow:
+
+* Validates the customer email before generating an OTP
+* Generates a four-digit numeric OTP
+* Stores only the bcrypt-hashed OTP under `otp:<email>`
+* Applies a five-minute expiration
+* Enforces a 30-second cooldown between requests
+* Limits generation to three attempts during the active key lifetime
+* Sends the OTP through Resend
+* Verifies the submitted value against the stored hash
+* Deletes the Redis key after successful verification
+
+Removing the key after verification prevents OTP replay. Expired, missing, and
+incorrect OTP values are rejected.
 
 ---
 
@@ -348,6 +405,10 @@ Returns complete category list.
 
 Returns subcategories under a selected category.
 
+### View Products by Category and Subcategory
+
+Returns products associated with the selected category and subcategory IDs.
+
 ---
 
 # Authentication System
@@ -395,6 +456,73 @@ Authorization: Bearer <token>
 ```
 
 Admin and customer tokens use separate secret keys.
+
+---
+
+# Middleware and Request Processing
+
+The application uses reusable middleware and service helpers to secure routes,
+process multipart requests, manage cloud-hosted product images, and support OTP
+delivery.
+
+## JWT Authentication Middleware
+
+Protected customer, administrator, and product routes pass through the shared
+access-token verification middleware.
+
+Responsibilities include:
+
+* Requiring an `Authorization` request header
+* Enforcing the `Bearer <token>` authentication format
+* Verifying access-token signatures and expiration
+* Selecting separate JWT secret keys for customers and administrators
+* Attaching the decoded token payload to `req.user`
+* Rejecting missing, malformed, invalid, or expired tokens
+
+Public registration, login, refresh-token, and OTP routes are registered before
+the customer authentication middleware and remain accessible without an access
+token.
+
+---
+
+## Product Image Upload Middleware
+
+Product create and update routes use Multer with Multer-S3 to process multipart
+image uploads and stream files directly to AWS S3.
+
+Upload behavior:
+
+* Accepts images from the `images` multipart field
+* Supports multiple product images per request
+* Limits each uploaded file to 5 MB
+* Automatically preserves the uploaded file content type
+* Generates timestamp-based object names
+* Stores objects under the `sub-categories-images/` S3 prefix
+* Uses environment-based AWS region, credentials, and bucket configuration
+
+Product deletion operations use the shared S3 deletion helper to remove image
+objects from the configured bucket. Delete requests use `upload.none()` to
+parse multipart form fields without accepting files.
+
+---
+
+## OTP Generation and Email Helper
+
+The OTP helper in `middlewares/otp.js` supports the customer verification flow.
+Although it is consumed as a service helper rather than route middleware, it is
+kept in the middleware module directory.
+
+Responsibilities include:
+
+* Generating four-digit numeric OTP values
+* Excluding alphabetic and special characters
+* Sending OTP messages through Resend
+* Providing an HTML email template
+* Communicating the five-minute OTP validity period
+* Propagating delivery errors to the customer model for centralized handling
+
+OTP hashing, Redis storage, request limiting, expiration, and verification are
+handled by the customer model.
 
 ---
 
@@ -519,6 +647,31 @@ Stores:
 
 ---
 
+# Redis Usage
+
+Redis supports two independent application concerns:
+
+## OTP Records
+
+The reusable CommonJS client in `redis_config.js` connects through `REDIS_URL`,
+uses RESP3, and centrally reports Redis connection and runtime errors. OTP data
+is stored in email-specific hashes containing the bcrypt hash,
+generation-attempt count, and latest delivery timestamp. Records expire after
+five minutes and are removed immediately after successful verification.
+
+## BullMQ Queue
+
+BullMQ uses Redis to coordinate the recurring cart-cleanup scheduler and the
+dedicated cart worker. Queue jobs retry up to three times with exponential
+backoff beginning at five seconds. Completed and failed job history is bounded
+to prevent unlimited Redis growth.
+
+The current BullMQ connection targets `localhost:6379` in `src/queue.js`.
+Deployments using a remote Redis service must update this queue connection
+configuration in addition to setting `REDIS_URL` for OTP storage.
+
+---
+
 # Transaction Management
 
 Critical operations use PostgreSQL transactions:
@@ -541,19 +694,33 @@ Benefits:
 
 ## Cart Cleanup Job
 
-Implemented using:
+Cart cleanup is implemented as a BullMQ recurring job rather than an in-process
+cron callback.
 
-```text
-node-cron
-```
+Processing flow:
 
-Runs every hour.
+* Application startup registers the recurring scheduler
+* The `cart` queue stores scheduled cleanup jobs in Redis
+* A separately started worker consumes `cart-cleanup` jobs
+* Worker concurrency is limited to one job at a time
+* Failed jobs retry up to three times with exponential backoff
+* Worker completion and failure events are logged
+
+The schedule uses the cron pattern `0 * * * *`, which queues a cleanup job at
+the start of every hour.
 
 Responsibilities:
 
-* Detect abandoned carts
-* Restore reserved stock
-* Mark carts as abandoned
+* Detect active carts unchanged for more than two hours
+* Restore reserved stock using grouped, set-based updates
+* Mark matching carts as abandoned within the same transaction
+* Report abandoned cart and restored product counts
+* Report total cleanup execution time
+
+The cleanup uses a single PostgreSQL Common Table Expression transaction for
+bulk cart selection, grouped inventory restoration, and atomic cart status
+updates. Errors are rethrown to BullMQ so its retry policy can handle transient
+failures.
 
 This prevents inventory from being locked indefinitely.
 
@@ -581,7 +748,40 @@ AWS_REGION=
 AWS_ACCESS_KEY=
 AWS_SECRET_KEY=
 AWS_BUCKET_NAME=
+
+RESEND_API_KEY=
+
+REDIS_URL=
 ```
+
+`REDIS_URL` configures the shared OTP Redis client. The BullMQ queue currently
+uses `localhost:6379` from `src/queue.js`.
+
+---
+
+# Running the Application
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the API server and register the recurring cart-cleanup schedule:
+
+```bash
+npm start
+```
+
+Start the cart worker in a separate process:
+
+```bash
+npm run worker:cart
+```
+
+The API startup waits for successful scheduler registration before opening the
+HTTP port. If registration fails, startup exits with an error instead of
+running without the scheduled cleanup process.
 
 ---
 
@@ -593,6 +793,8 @@ AWS_BUCKET_NAME=
 POST   /cus/signup
 POST   /cus/login
 POST   /cus/refresh
+POST   /cus/otp/send
+GET    /cus/otp/verify
 
 POST   /cus/cart/add
 DELETE /cus/cart/del
@@ -606,6 +808,7 @@ POST   /cus/cart/check_out
 ```http
 GET /cus/categories/get_all
 GET /cus/categories/all_sub/:id
+GET /cus/categories/:cid/sub/:sid/products
 ```
 
 ---
@@ -641,7 +844,5 @@ POST   /admin/categories/:cid/sub/:sid/add
 DELETE /admin/categories/:cid/sub/:sid/del
 PUT    /admin/categories/:cid/sub/:sid/upd
 ```
-
----
 
 

@@ -39,7 +39,7 @@ try {
     }
 }
 
-static async access_tok_verifly(req,res,next,src='users'){
+static async access_tok_verifly(req,res,next,src='user'){
     
 try {
     
@@ -61,8 +61,9 @@ try {
   
     }
 
-    const key=src==='admin'?process.env.admin_access_sec_k:process.env.access_sec_k
+    const key = src === 'admin' ? process.env.admin_access_sec_k : process.env.access_sec_k
     const dec=jwt.verify(acc_tk,key)
+   
     if(!dec){
         return res.status(500).json(new resp_cus(500,'corrupted jwt',null))
     }
@@ -75,7 +76,7 @@ try {
     }
 
 
-static async refresh(req, res, src = 'users') {
+static async refresh(req, res, src = 'user') {
   try {
     const { refresh_token } = req.body
 
